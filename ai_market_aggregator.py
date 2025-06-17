@@ -177,7 +177,7 @@ class AIMarketAggregator:
             articles_text.append(f"Date: {article['date']}")
             articles_text.append("")
         
-        prompt = f"""You are a financial market analyst tasked with creating a daily market intelligence briefing. Analyze the following market data and news articles to identify the 15 most important stories for today.
+        prompt = f"""You are a financial news analyst tasked with creating a daily news briefing. Analyze the following market data and news articles to create a comprehensive daily report.
 
 ## TODAY'S MARKET DATA:
 {market_data}
@@ -186,38 +186,44 @@ class AIMarketAggregator:
 {chr(10).join(articles_text)}
 
 ## YOUR TASK:
-Create a market intelligence briefing following these guidelines:
+Create a daily briefing with TWO DISTINCT SECTIONS:
 
-1. **IDENTIFY THE TOP 15 STORIES** based on:
-   - Frequency of coverage (stories appearing in multiple sources indicate importance)
-   - Direct impact on tracked tickers: QQQ, SPY, DXY, IWM, GLD, BTCUSD, MP
-   - Market-moving potential
-   - Federal Reserve or major policy implications
-   - Today's relevance (prioritize breaking news)
+**SECTION 1 - MARKET PERFORMANCE:**
+Simply present the market data provided above in a clean, readable format. Just state how each ticker performed today - no analysis needed.
 
-2. **FOR EACH STORY, PROVIDE**:
-   - A clear, descriptive headline
-   - A full paragraph (4-6 sentences) that:
-     * Summarizes what happened
-     * Explains why it matters to markets
-     * Notes which tracked tickers are affected
-     * Indicates the potential impact (bullish/bearish/neutral)
-   - Source attribution (which outlets reported it)
+**SECTION 2 - TOP NEWS STORIES:**
+Identify and summarize the 15 most important news stories based on:
+- Frequency of coverage (stories appearing in multiple sources indicate importance)
+- Overall market significance
+- Federal Reserve or major policy implications
+- Breaking news or today's developments
+- General economic or geopolitical importance
 
-3. **FORMAT FOR EMAIL DELIVERY**:
-   - Start with a brief market overview (2-3 sentences on today's market mood)
-   - Number each story (1-15) in order of importance
-   - Use clear section breaks between stories
-   - Bold key tickers when mentioned
-   - End with a brief forward-looking statement
+For each news story:
+- Write a clear, descriptive headline
+- Provide a full paragraph (4-6 sentences) that explains:
+  * What happened
+  * Why it's significant
+  * The broader context or implications
+  * Any relevant background information
+- Include source attribution (which outlets reported it)
 
-4. **WRITING STYLE**:
-   - Professional but conversational
-   - Avoid jargon; explain technical terms
-   - Focus on actionable insights
-   - Be objective; present multiple viewpoints when relevant
+**IMPORTANT:** Keep the news summaries focused on the stories themselves. Do NOT force connections to specific tickers or constantly mention how each story affects QQQ, SPY, etc. Just tell me what happened and why it matters in general terms.
 
-Please analyze the provided data and create this briefing now."""
+**FORMAT GUIDELINES:**
+- Start with "MARKET PERFORMANCE" section
+- Follow with "TOP NEWS STORIES" section
+- Number stories 1-15 in order of importance
+- Use clear section breaks
+- End with a brief forward-looking statement about tomorrow/this week
+
+**WRITING STYLE:**
+- Professional but conversational
+- Focus on clarity and readability
+- Be objective and balanced
+- Avoid repetitive ticker analysis
+
+Please create this briefing now."""
 
         return prompt
 
@@ -336,15 +342,16 @@ Please analyze the provided data and create this briefing now."""
 
     def create_basic_analysis(self):
         """Create a basic analysis without AI"""
-        return """**DAILY MARKET INTELLIGENCE BRIEFING**
+        return """**MARKET PERFORMANCE**
 {date}
 
-**Market Overview:** Markets showed mixed signals today with technology stocks leading. The dollar index remained stable while crypto assets saw increased volatility.
+Today's market data has been collected. Please see the ticker performance above.
+
+**TOP NEWS STORIES**
 
 **Note:** AI analysis unavailable. This is a basic summary of collected data. Please configure OPENAI_API_KEY or ANTHROPIC_API_KEY for full AI-powered analysis.
 
-**Top Stories Summary:**
-Based on article frequency, major themes include Federal Reserve policy, technology sector movements, and geopolitical developments. For detailed analysis, please enable AI integration.
+Based on article frequency, major themes in today's news include Federal Reserve policy, technology sector developments, and geopolitical events. For detailed analysis and the top 15 stories with full summaries, please enable AI integration.
 
 **Looking Ahead:** Market participants await tomorrow's economic data releases and corporate earnings reports.""".format(
             date=datetime.now().strftime('%B %d, %Y')
@@ -390,12 +397,25 @@ Based on article frequency, major themes include Federal Reserve policy, technol
                     text-align: center;
                     margin-top: 10px;
                 }}
-                .overview {{
-                    background-color: #f8f9fa;
+                .market-section {{
+                    background-color: #f0f8ff;
                     padding: 20px;
                     border-radius: 8px;
                     margin-bottom: 30px;
-                    border-left: 4px solid #3498db;
+                    border-left: 4px solid #4169e1;
+                }}
+                .market-section h2 {{
+                    color: #2c3e50;
+                    margin-top: 0;
+                }}
+                .news-section {{
+                    margin-top: 30px;
+                }}
+                .news-section h2 {{
+                    color: #2c3e50;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
                 }}
                 .story {{
                     margin-bottom: 30px;
@@ -405,9 +425,9 @@ Based on article frequency, major themes include Federal Reserve policy, technol
                 .story:last-child {{
                     border-bottom: none;
                 }}
-                .story h2 {{
+                .story h3 {{
                     color: #2c3e50;
-                    font-size: 20px;
+                    font-size: 18px;
                     margin-bottom: 10px;
                 }}
                 .story p {{
@@ -420,8 +440,12 @@ Based on article frequency, major themes include Federal Reserve policy, technol
                     font-size: 14px;
                 }}
                 .ticker {{
+                    font-family: 'Courier New', monospace;
                     font-weight: bold;
-                    color: #27ae60;
+                    color: #4169e1;
+                    background-color: #f0f8ff;
+                    padding: 2px 4px;
+                    border-radius: 3px;
                 }}
                 .footer {{
                     margin-top: 40px;
@@ -439,12 +463,20 @@ Based on article frequency, major themes include Federal Reserve policy, technol
                     border-top: 1px solid #eee;
                     margin: 20px 0;
                 }}
+                pre {{
+                    background-color: #f5f5f5;
+                    padding: 10px;
+                    border-radius: 5px;
+                    overflow-x: auto;
+                    font-family: 'Courier New', monospace;
+                    font-size: 14px;
+                }}
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>📊 Daily Market Intelligence Briefing</h1>
+                    <h1>📊 Daily Market & News Briefing</h1>
                     <div class="meta">
                         Generated: {timestamp}<br>
                         Analysis by: {source}
