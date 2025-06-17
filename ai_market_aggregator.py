@@ -177,6 +177,10 @@ class AIMarketAggregator:
             articles_text.append(f"Date: {article['date']}")
             articles_text.append("")
         
+        # Get tomorrow's date for the looking ahead section
+        tomorrow = datetime.now() + timedelta(days=1)
+        tomorrow_str = tomorrow.strftime('%A, %B %d')
+        
         prompt = f"""You are a financial news analyst tasked with creating a daily news briefing. Analyze the following market data and news articles to create a comprehensive daily report.
 
 ## TODAY'S MARKET DATA:
@@ -189,7 +193,13 @@ class AIMarketAggregator:
 Create a daily briefing with TWO DISTINCT SECTIONS:
 
 **SECTION 1 - MARKET PERFORMANCE:**
-Simply present the market data provided above in a clean, readable format. Just state how each ticker performed today - no analysis needed.
+Present the market data in a clean, formatted way. For each ticker, show:
+- The symbol
+- Current/closing price
+- Change in dollars
+- Change in percentage
+- Use 🟢 for positive changes and 🔴 for negative changes
+Keep the original formatting style from the input data.
 
 **SECTION 2 - TOP NEWS STORIES:**
 Identify and summarize the 15 most important news stories based on:
@@ -210,12 +220,21 @@ For each news story:
 
 **IMPORTANT:** Keep the news summaries focused on the stories themselves. Do NOT force connections to specific tickers or constantly mention how each story affects QQQ, SPY, etc. Just tell me what happened and why it matters in general terms.
 
+**LOOKING AHEAD SECTION:**
+End with a specific "Looking Ahead" section for {tomorrow_str} that includes:
+- Specific economic data releases scheduled (if any mentioned in the articles)
+- Key earnings reports expected
+- Federal Reserve events or speeches
+- Important government meetings or hearings
+- Any other concrete events mentioned in today's news that will occur tomorrow
+Be specific with times if mentioned. If no specific events are mentioned for tomorrow, note key themes to watch.
+
 **FORMAT GUIDELINES:**
 - Start with "MARKET PERFORMANCE" section
 - Follow with "TOP NEWS STORIES" section
 - Number stories 1-15 in order of importance
 - Use clear section breaks
-- End with a brief forward-looking statement about tomorrow/this week
+- End with the specific "Looking Ahead" section
 
 **WRITING STYLE:**
 - Professional but conversational
@@ -521,14 +540,113 @@ Based on article frequency, major themes in today's news include Federal Reserve
         # Bold text
         text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
         
-        # Ticker symbols (assuming they're in bold)
-        for ticker in self.symbols:
-            text = text.replace(f'<strong>{ticker}</strong>', f'<span class="ticker">{ticker}</span>')
+        # Format market data section specially
+        if 'MARKET PERFORMANCE' in text:
+            lines = text.split('\n')
+            formatted_lines = []
+            in_market_section = False
+            
+            for line in lines:
+                if 'MARKET PERFORMANCE' in line:
+                    in_market_section = True
+                    formatted_lines.append(line)
+                elif 'TOP NEWS STORIES' in line:
+                    in_market_section = False
+                    formatted_lines.append(line)
+                elif in_market_section and line.strip() and any(ticker in line for ticker in self.symbols):
+                    # Format market data lines
+                    line = line.replace('🟢', '<span style="color: #27ae60;">🟢</span>')
+                    line = line.replace('🔴', '<span style="color: #e74c3c;">🔴</span>')
+                    # Make the line monospaced for better alignment
+                    formatted_lines.append(f'<div style="font-family: monospace; font-size: 14px; margin: 5px 0;">{line}</div>')
+                else:
+                    formatted_lines.append(line)
+            
+            text = '\n'.join(formatted_lines)
         
         # Headers
-        text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{2,3} (.+)
+
+    def send_report_email(self, html_content):
+        """Email the AI-analyzed report"""
+        sender_email = os.getenv('SENDER_EMAIL')
+        sender_password = os.getenv('SENDER_PASSWORD')
+        recipient_email = os.getenv('RECIPIENT_EMAIL')
         
-        # Line breaks
+        if not all([sender_email, sender_password, recipient_email]):
+            print("❌ Missing email configuration")
+            return False
+        
+        try:
+            msg = MIMEMultipart()
+            msg['Subject'] = f"📊 AI Market Intelligence - {datetime.now().strftime('%B %d, %Y')}"
+            msg['From'] = sender_email
+            msg['To'] = recipient_email
+            
+            msg.attach(MIMEText(html_content, 'html'))
+            
+            with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+            
+            print("✅ AI analysis emailed successfully!")
+            print(f"   Sent to: {recipient_email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Email error: {e}")
+            return False
+
+    def run(self):
+        """Main execution function"""
+        print("🚀 AI MARKET AGGREGATOR - Starting Analysis")
+        print(f"   Symbols: {', '.join(self.symbols)}")
+        print(f"   RSS Feeds: {len(self.rss_feeds)} sources")
+        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        print("-" * 60)
+        
+        # Step 1: Fetch market data
+        print("\n📊 Step 1: Fetching market data...")
+        market_data = self.fetch_market_data()
+        
+        # Step 2: Fetch RSS feeds
+        print("\n📰 Step 2: Collecting news articles...")
+        articles, feed_statuses = self.fetch_all_rss_feeds()
+        
+        # Step 3: Prepare AI prompt
+        print(f"\n🧮 Step 3: Preparing AI analysis ({len(articles)} articles)...")
+        prompt = self.prepare_ai_prompt(market_data, articles)
+        print(f"   Prompt size: {len(prompt):,} characters")
+        
+        # Step 4: Get AI analysis
+        print("\n🤖 Step 4: Getting AI analysis...")
+        ai_analysis, analysis_source = self.get_ai_analysis(prompt, market_data)
+        
+        # Step 5: Format and send email
+        print("\n📧 Step 5: Formatting and sending email...")
+        html_content = self.format_email_html(ai_analysis, analysis_source)
+        
+        if self.send_report_email(html_content):
+            print("\n🎉 AI market analysis completed successfully!")
+        else:
+            print("\n⚠️ Analysis completed but email failed")
+        
+        # Summary
+        print("\n" + "=" * 60)
+        print("📊 EXECUTION SUMMARY")
+        print("=" * 60)
+        print(f"Articles processed: {len(articles)}")
+        print(f"Analysis source: {analysis_source}")
+        print(f"Email sent: {'Yes' if self.send_report_email else 'No'}")
+        print(f"Total execution time: Check GitHub Actions logs")
+
+if __name__ == "__main__":
+    aggregator = AIMarketAggregator()
+    aggregator.run()
+, r'<h3>\1</h3>', text, flags=re.MULTILINE)
+        
+        # Line breaks and paragraphs
         text = text.replace('\n\n', '</p><p>')
         text = f'<p>{text}</p>'
         
@@ -536,6 +654,8 @@ Based on article frequency, major themes in today's news include Federal Reserve
         text = text.replace('<p></p>', '')
         text = text.replace('<p><h3>', '<h3>')
         text = text.replace('</h3></p>', '</h3>')
+        text = text.replace('<p><div', '<div')
+        text = text.replace('</div></p>', '</div>')
         
         return text
 
