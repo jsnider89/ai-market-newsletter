@@ -243,7 +243,7 @@ Please create this briefing now."""
             }
             
             data = {
-                'model': 'gpt-4-turbo',  # or 'gpt-3.5-turbo' for cheaper option
+                'model': 'gpt-4o',  # or 'gpt-3.5-turbo' for even cheaper option
                 'messages': [
                     {
                         'role': 'system',
@@ -300,7 +300,7 @@ Please create this briefing now."""
             }
             
             data = {
-                'model': 'claude-3-opus-20240229',  # or 'claude-3-sonnet-20240229' for cheaper
+                'model': 'claude-3-5-haiku-20241022',  # Fast and cost-effective
                 'messages': [
                     {
                         'role': 'user',
