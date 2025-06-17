@@ -33,6 +33,7 @@ class AIMarketAggregator:
             ('Newsmax Politics', 'https://www.newsmax.com/rss/Politics/1'),
             ('MarketWatch Top Stories', 'https://feeds.content.dowjones.io/public/rss/mw_topstories'),
             ('MarketWatch Real-time', 'https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines'),
+            ('MarketWatch Market Pulse', 'https://feeds.content.dowjones.io/public/rss/mw_marketpulse'),
             ('CNBC Markets', 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664'),
             ('CNBC Finance', 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258'),
             ('CNBC Economy', 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910')
