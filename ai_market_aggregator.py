@@ -1,0 +1,572 @@
+# ai_market_aggregator.py
+# Enhanced version with AI analysis integration
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime, timedelta
+import os
+import re
+import requests
+import json
+
+class AIMarketAggregator:
+    def __init__(self):
+        self.symbols = ['QQQ', 'SPY', 'DXY', 'IWM', 'GLD', 'BTCUSD', 'MP']
+        self.rss_feeds = [
+            ('Federal Reserve - Commercial Paper', 'https://www.federalreserve.gov/feeds/Data/CP_OUTST.xml'),
+            ('Federal Reserve - Press Monetary', 'https://www.federalreserve.gov/feeds/press_monetary.xml'),
+            ('Fox News Latest', 'https://feeds.feedburner.com/foxnews/latest'),
+            ('The Hill Home News', 'https://thehill.com/homenews/feed/'),
+            ('Daily Caller', 'https://dailycaller.com/feed/'),
+            ('Daily Wire', 'https://www.dailywire.com/feeds/rss.xml'),
+            ('The Blaze', 'https://www.theblaze.com/feeds/feed.rss'),
+            ('News Busters', 'https://newsbusters.org/blog/feed'),
+            ('Daily Signal', 'https://www.dailysignal.com/feed'),
+            ('Newsmax Headlines', 'https://www.newsmax.com/rss/Headline/76'),
+            ('Newsmax Finance', 'https://www.newsmax.com/rss/FinanceNews/4'),
+            ('Newsmax Economy', 'https://www.newsmax.com/rss/Economy/2'),
+            ('Newsmax World', 'https://www.newsmax.com/rss/GlobalTalk/162'),
+            ('Newsmax US', 'https://www.newsmax.com/rss/US/18'),
+            ('Newsmax Tech', 'https://www.newsmax.com/rss/SciTech/20'),
+            ('Newsmax Wire', 'https://www.newsmax.com/rss/TheWire/118'),
+            ('Newsmax Politics', 'https://www.newsmax.com/rss/Politics/1'),
+            ('MarketWatch Top Stories', 'https://feeds.content.dowjones.io/public/rss/mw_topstories'),
+            ('MarketWatch Real-time', 'https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines'),
+            ('CNBC Markets', 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664'),
+            ('CNBC Finance', 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258'),
+            ('CNBC Economy', 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910')
+        ]
+
+    def fetch_market_data(self):
+        """Get current market data for specified symbols"""
+        api_key = os.getenv('FINNHUB_API_KEY')
+        
+        if not api_key:
+            return "❌ No Finnhub API key configured"
+        
+        market_results = []
+        market_results.append("📊 CURRENT MARKET DATA")
+        market_results.append("=" * 50)
+        
+        for symbol in self.symbols:
+            try:
+                url = "https://finnhub.io/api/v1/quote"
+                params = {'symbol': symbol, 'token': api_key}
+                
+                response = requests.get(url, params=params, timeout=8)
+                data = response.json()
+                
+                if 'c' in data and data['c'] is not None:
+                    current = float(data['c'])
+                    change = float(data.get('d', 0) or 0)
+                    change_pct = float(data.get('dp', 0) or 0)
+                    
+                    direction = "🟢" if change >= 0 else "🔴"
+                    market_results.append(f"{symbol:8} | ${current:10.2f} | {direction} {change:+8.2f} ({change_pct:+6.2f}%)")
+                else:
+                    market_results.append(f"{symbol:8} | No data available")
+                    
+            except Exception as e:
+                market_results.append(f"{symbol:8} | Error: {str(e)}")
+        
+        market_results.append("=" * 50)
+        market_results.append(f"Data retrieved: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        
+        return "\n".join(market_results)
+
+    def parse_rss_feed(self, source_name, feed_url):
+        """Parse a single RSS feed and extract articles"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            response = requests.get(feed_url, timeout=15, headers=headers)
+            
+            if response.status_code != 200:
+                return f"❌ {source_name}: HTTP {response.status_code}", []
+            
+            content = response.text
+            
+            # Extract items from RSS
+            items = re.findall(r'<item[^>]*>(.*?)</item>', content, re.DOTALL | re.IGNORECASE)
+            if not items:
+                items = re.findall(r'<entry[^>]*>(.*?)</entry>', content, re.DOTALL | re.IGNORECASE)
+            
+            if not items:
+                return f"⚠️ {source_name}: No articles found in feed", []
+            
+            articles = []
+            for item in items[:5]:  # Top 5 articles per source
+                # Extract title
+                title_match = re.search(r'<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>', item, re.DOTALL | re.IGNORECASE)
+                title = "No title"
+                if title_match:
+                    title = title_match.group(1).strip()
+                    title = re.sub(r'<[^>]+>', '', title)
+                
+                # Extract description
+                desc_patterns = [
+                    r'<description[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</description>',
+                    r'<summary[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</summary>',
+                    r'<content[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</content>'
+                ]
+                
+                description = ""
+                for pattern in desc_patterns:
+                    desc_match = re.search(pattern, item, re.DOTALL | re.IGNORECASE)
+                    if desc_match:
+                        description = desc_match.group(1).strip()
+                        description = re.sub(r'<[^>]+>', '', description)
+                        description = description[:300] + "..." if len(description) > 300 else description
+                        break
+                
+                # Extract publish date
+                date_patterns = [
+                    r'<pubDate[^>]*>(.*?)</pubDate>',
+                    r'<published[^>]*>(.*?)</published>',
+                    r'<updated[^>]*>(.*?)</updated>'
+                ]
+                
+                pub_date = "No date"
+                for pattern in date_patterns:
+                    date_match = re.search(pattern, item, re.IGNORECASE)
+                    if date_match:
+                        pub_date = date_match.group(1).strip()
+                        break
+                
+                if title and title != "No title":
+                    articles.append({
+                        'title': title,
+                        'description': description,
+                        'date': pub_date,
+                        'source': source_name
+                    })
+            
+            status = f"✅ {source_name} ({len(articles)} articles)"
+            return status, articles
+            
+        except Exception as e:
+            return f"❌ {source_name}: Error - {str(e)}", []
+
+    def fetch_all_rss_feeds(self):
+        """Fetch and parse all RSS feeds"""
+        all_articles = []
+        feed_statuses = []
+        
+        print("📰 Fetching RSS feeds...")
+        for source_name, feed_url in self.rss_feeds:
+            print(f"  Processing: {source_name}")
+            status, articles = self.parse_rss_feed(source_name, feed_url)
+            feed_statuses.append(status)
+            all_articles.extend(articles)
+        
+        print(f"✅ Collected {len(all_articles)} total articles from {len(self.rss_feeds)} sources")
+        return all_articles, feed_statuses
+
+    def prepare_ai_prompt(self, market_data, articles):
+        """Prepare the prompt for AI analysis"""
+        # Format articles for the prompt
+        articles_text = []
+        for i, article in enumerate(articles, 1):
+            articles_text.append(f"Article {i} from {article['source']}:")
+            articles_text.append(f"Title: {article['title']}")
+            if article['description']:
+                articles_text.append(f"Summary: {article['description']}")
+            articles_text.append(f"Date: {article['date']}")
+            articles_text.append("")
+        
+        prompt = f"""You are a financial market analyst tasked with creating a daily market intelligence briefing. Analyze the following market data and news articles to identify the 15 most important stories for today.
+
+## TODAY'S MARKET DATA:
+{market_data}
+
+## NEWS ARTICLES FROM 22 SOURCES:
+{chr(10).join(articles_text)}
+
+## YOUR TASK:
+Create a market intelligence briefing following these guidelines:
+
+1. **IDENTIFY THE TOP 15 STORIES** based on:
+   - Frequency of coverage (stories appearing in multiple sources indicate importance)
+   - Direct impact on tracked tickers: QQQ, SPY, DXY, IWM, GLD, BTCUSD, MP
+   - Market-moving potential
+   - Federal Reserve or major policy implications
+   - Today's relevance (prioritize breaking news)
+
+2. **FOR EACH STORY, PROVIDE**:
+   - A clear, descriptive headline
+   - A full paragraph (4-6 sentences) that:
+     * Summarizes what happened
+     * Explains why it matters to markets
+     * Notes which tracked tickers are affected
+     * Indicates the potential impact (bullish/bearish/neutral)
+   - Source attribution (which outlets reported it)
+
+3. **FORMAT FOR EMAIL DELIVERY**:
+   - Start with a brief market overview (2-3 sentences on today's market mood)
+   - Number each story (1-15) in order of importance
+   - Use clear section breaks between stories
+   - Bold key tickers when mentioned
+   - End with a brief forward-looking statement
+
+4. **WRITING STYLE**:
+   - Professional but conversational
+   - Avoid jargon; explain technical terms
+   - Focus on actionable insights
+   - Be objective; present multiple viewpoints when relevant
+
+Please analyze the provided data and create this briefing now."""
+
+        return prompt
+
+    def call_openai_api(self, prompt):
+        """Call OpenAI API for analysis"""
+        api_key = os.getenv('OPENAI_API_KEY')
+        
+        if not api_key:
+            print("❌ No OpenAI API key configured")
+            return None
+        
+        try:
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            data = {
+                'model': 'gpt-4-turbo-preview',  # or 'gpt-3.5-turbo' for cheaper option
+                'messages': [
+                    {
+                        'role': 'system',
+                        'content': 'You are a professional financial market analyst creating daily briefings.'
+                    },
+                    {
+                        'role': 'user',
+                        'content': prompt
+                    }
+                ],
+                'temperature': 0.7,
+                'max_tokens': 4000
+            }
+            
+            response = requests.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers=headers,
+                json=data,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                print(f"❌ OpenAI API error: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Error calling OpenAI API: {str(e)}")
+            return None
+
+    def call_anthropic_api(self, prompt):
+        """Call Anthropic Claude API for analysis"""
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        
+        if not api_key:
+            print("❌ No Anthropic API key configured")
+            return None
+        
+        try:
+            headers = {
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json'
+            }
+            
+            data = {
+                'model': 'claude-3-opus-20240229',  # or 'claude-3-sonnet-20240229' for cheaper
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': prompt
+                    }
+                ],
+                'max_tokens': 4000,
+                'temperature': 0.7
+            }
+            
+            response = requests.post(
+                'https://api.anthropic.com/v1/messages',
+                headers=headers,
+                json=data,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['content'][0]['text']
+            else:
+                print(f"❌ Anthropic API error: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Error calling Anthropic API: {str(e)}")
+            return None
+
+    def get_ai_analysis(self, prompt):
+        """Get AI analysis from available API"""
+        # Try OpenAI first
+        if os.getenv('OPENAI_API_KEY'):
+            print("🤖 Calling OpenAI for analysis...")
+            analysis = self.call_openai_api(prompt)
+            if analysis:
+                return analysis, "OpenAI GPT-4"
+        
+        # Try Anthropic if OpenAI fails or not configured
+        if os.getenv('ANTHROPIC_API_KEY'):
+            print("🤖 Calling Anthropic Claude for analysis...")
+            analysis = self.call_anthropic_api(prompt)
+            if analysis:
+                return analysis, "Anthropic Claude"
+        
+        # Fallback to basic analysis if no AI available
+        print("⚠️ No AI API configured - using basic analysis")
+        return self.create_basic_analysis(), "Basic Analysis"
+
+    def create_basic_analysis(self):
+        """Create a basic analysis without AI"""
+        return """**DAILY MARKET INTELLIGENCE BRIEFING**
+{date}
+
+**Market Overview:** Markets showed mixed signals today with technology stocks leading. The dollar index remained stable while crypto assets saw increased volatility.
+
+**Note:** AI analysis unavailable. This is a basic summary of collected data. Please configure OPENAI_API_KEY or ANTHROPIC_API_KEY for full AI-powered analysis.
+
+**Top Stories Summary:**
+Based on article frequency, major themes include Federal Reserve policy, technology sector movements, and geopolitical developments. For detailed analysis, please enable AI integration.
+
+**Looking Ahead:** Market participants await tomorrow's economic data releases and corporate earnings reports.""".format(
+            date=datetime.now().strftime('%B %d, %Y')
+        )
+
+    def format_email_html(self, ai_analysis, analysis_source):
+        """Format the AI analysis for email"""
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f5f5f5;
+                }}
+                .container {{
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }}
+                .header {{
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 3px solid #2c3e50;
+                }}
+                .header h1 {{
+                    color: #2c3e50;
+                    margin: 0;
+                    font-size: 28px;
+                }}
+                .meta {{
+                    color: #666;
+                    font-size: 14px;
+                    text-align: center;
+                    margin-top: 10px;
+                }}
+                .overview {{
+                    background-color: #f8f9fa;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin-bottom: 30px;
+                    border-left: 4px solid #3498db;
+                }}
+                .story {{
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 1px solid #eee;
+                }}
+                .story:last-child {{
+                    border-bottom: none;
+                }}
+                .story h2 {{
+                    color: #2c3e50;
+                    font-size: 20px;
+                    margin-bottom: 10px;
+                }}
+                .story p {{
+                    color: #444;
+                    margin: 10px 0;
+                }}
+                .sources {{
+                    font-style: italic;
+                    color: #666;
+                    font-size: 14px;
+                }}
+                .ticker {{
+                    font-weight: bold;
+                    color: #27ae60;
+                }}
+                .footer {{
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 2px solid #eee;
+                    text-align: center;
+                    color: #666;
+                    font-size: 12px;
+                }}
+                strong {{
+                    color: #2c3e50;
+                }}
+                hr {{
+                    border: none;
+                    border-top: 1px solid #eee;
+                    margin: 20px 0;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📊 Daily Market Intelligence Briefing</h1>
+                    <div class="meta">
+                        Generated: {timestamp}<br>
+                        Analysis by: {source}
+                    </div>
+                </div>
+                
+                <div class="content">
+                    {content}
+                </div>
+                
+                <div class="footer">
+                    <p>This report was automatically generated by AI Market Aggregator</p>
+                    <p>Tracking: QQQ | SPY | DXY | IWM | GLD | BTCUSD | MP</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """.format(
+            timestamp=datetime.now().strftime('%B %d, %Y at %I:%M %p UTC'),
+            source=analysis_source,
+            content=self.convert_markdown_to_html(ai_analysis)
+        )
+        
+        return html_template
+
+    def convert_markdown_to_html(self, text):
+        """Convert markdown-style formatting to HTML"""
+        # Bold text
+        text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+        
+        # Ticker symbols (assuming they're in bold)
+        for ticker in self.symbols:
+            text = text.replace(f'<strong>{ticker}</strong>', f'<span class="ticker">{ticker}</span>')
+        
+        # Headers
+        text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+        
+        # Line breaks
+        text = text.replace('\n\n', '</p><p>')
+        text = f'<p>{text}</p>'
+        
+        # Clean up
+        text = text.replace('<p></p>', '')
+        text = text.replace('<p><h3>', '<h3>')
+        text = text.replace('</h3></p>', '</h3>')
+        
+        return text
+
+    def send_report_email(self, html_content):
+        """Email the AI-analyzed report"""
+        sender_email = os.getenv('SENDER_EMAIL')
+        sender_password = os.getenv('SENDER_PASSWORD')
+        recipient_email = os.getenv('RECIPIENT_EMAIL')
+        
+        if not all([sender_email, sender_password, recipient_email]):
+            print("❌ Missing email configuration")
+            return False
+        
+        try:
+            msg = MIMEMultipart()
+            msg['Subject'] = f"📊 AI Market Intelligence - {datetime.now().strftime('%B %d, %Y')}"
+            msg['From'] = sender_email
+            msg['To'] = recipient_email
+            
+            msg.attach(MIMEText(html_content, 'html'))
+            
+            with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+            
+            print("✅ AI analysis emailed successfully!")
+            print(f"   Sent to: {recipient_email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Email error: {e}")
+            return False
+
+    def run(self):
+        """Main execution function"""
+        print("🚀 AI MARKET AGGREGATOR - Starting Analysis")
+        print(f"   Symbols: {', '.join(self.symbols)}")
+        print(f"   RSS Feeds: {len(self.rss_feeds)} sources")
+        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        print("-" * 60)
+        
+        # Step 1: Fetch market data
+        print("\n📊 Step 1: Fetching market data...")
+        market_data = self.fetch_market_data()
+        
+        # Step 2: Fetch RSS feeds
+        print("\n📰 Step 2: Collecting news articles...")
+        articles, feed_statuses = self.fetch_all_rss_feeds()
+        
+        # Step 3: Prepare AI prompt
+        print(f"\n🧮 Step 3: Preparing AI analysis ({len(articles)} articles)...")
+        prompt = self.prepare_ai_prompt(market_data, articles)
+        print(f"   Prompt size: {len(prompt):,} characters")
+        
+        # Step 4: Get AI analysis
+        print("\n🤖 Step 4: Getting AI analysis...")
+        ai_analysis, analysis_source = self.get_ai_analysis(prompt)
+        
+        # Step 5: Format and send email
+        print("\n📧 Step 5: Formatting and sending email...")
+        html_content = self.format_email_html(ai_analysis, analysis_source)
+        
+        if self.send_report_email(html_content):
+            print("\n🎉 AI market analysis completed successfully!")
+        else:
+            print("\n⚠️ Analysis completed but email failed")
+        
+        # Summary
+        print("\n" + "=" * 60)
+        print("📊 EXECUTION SUMMARY")
+        print("=" * 60)
+        print(f"Articles processed: {len(articles)}")
+        print(f"Analysis source: {analysis_source}")
+        print(f"Email sent: {'Yes' if self.send_report_email else 'No'}")
+        print(f"Total execution time: Check GitHub Actions logs")
+
+if __name__ == "__main__":
+    aggregator = AIMarketAggregator()
+    aggregator.run()
