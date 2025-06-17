@@ -579,7 +579,7 @@ Based on article frequency, major themes in today's news include Federal Reserve
             text = '\n'.join(formatted_lines)
         
         # Headers
-        text = re.sub(r'^#{2,3} (.+)
+text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
 
     def send_report_email(self, html_content):
         """Email the AI-analyzed report"""
