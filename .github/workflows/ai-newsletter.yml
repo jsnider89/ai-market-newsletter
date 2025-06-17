@@ -24,11 +24,13 @@ jobs:
         pip install anthropic openai requests
         
     - name: 🤖 Generate dual AI summary
-      env:
-        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
-        SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
-        RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-      run: python ai_newsletter.py
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+    MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
+    SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+    SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+    RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+    GITHUB_REPOSITORY: ${{ github.repository }}
+  run: python ai_newsletter.py
