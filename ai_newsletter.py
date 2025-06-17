@@ -90,15 +90,26 @@ class RealDataAINewsletterBot:
                 response = requests.get(url, params=params, timeout=5)
                 data = response.json()
                 
-                if 'c' in data:
+                # Check if we have valid data
+                if 'c' in data and data['c'] is not None:
                     current = data['c']
-                    change = data.get('d', 0)
-                    change_pct = data.get('dp', 0)
+                    change = data.get('d', 0) or 0  # Default to 0 if None
+                    change_pct = data.get('dp', 0) or 0  # Default to 0 if None
                     
-                    direction = "📈" if change >= 0 else "📉"
-                    market_data.append(f"{symbol}: ${current:.2f} {direction} {change:+.2f} ({change_pct:+.2f}%)")
+                    # Ensure we have numbers
+                    try:
+                        current = float(current)
+                        change = float(change)
+                        change_pct = float(change_pct)
+                        
+                        direction = "📈" if change >= 0 else "📉"
+                        market_data.append(f"{symbol}: ${current:.2f} {direction} {change:+.2f} ({change_pct:+.2f}%)")
+                    except (ValueError, TypeError):
+                        market_data.append(f"{symbol}: Data unavailable")
+                else:
+                    market_data.append(f"{symbol}: No current price data")
             
-            return "\n".join(market_data) if market_data else "Unable to fetch market data"
+            return "\n".join(market_data) if market_data else "Unable to fetch any market data"
             
         except Exception as e:
             return f"Error fetching market data: {str(e)}"
@@ -350,19 +361,49 @@ Both AI models analyzed the same real market data above. Compare their interpret
     def simple_html_conversion(self, content):
         """Simple HTML conversion without complex regex"""
         
-        # Replace line breaks with HTML breaks
-        content = content.replace('\n', '<br>')
+        # Split content into lines for better processing
+        lines = content.split('\n')
+        html_lines = []
         
-        # Replace headers manually
-        content = content.replace('# ', '<h1>').replace('<br>', '</h1><br>', 1)
-        content = content.replace('## ', '<h2>').replace('<br>', '</h2><br>')
-        content = content.replace('### ', '<h3>').replace('<br>', '</h3><br>')
+        for line in lines:
+            line = line.strip()
+            
+            # Skip empty lines
+            if not line:
+                html_lines.append('<br>')
+                continue
+            
+            # Handle headers
+            if line.startswith('### '):
+                html_lines.append(f'<h3>{line[4:]}</h3>')
+            elif line.startswith('## '):
+                html_lines.append(f'<h2>{line[3:]}</h2>')
+            elif line.startswith('# '):
+                html_lines.append(f'<h1>{line[2:]}</h1>')
+            elif line == '---':
+                html_lines.append('<hr>')
+            elif line.startswith('**') and line.endswith('**'):
+                # Bold headers
+                html_lines.append(f'<h3>{line[2:-2]}</h3>')
+            elif line.startswith('- ') or line.startswith('• '):
+                # Bullet points
+                html_lines.append(f'<li>{line[2:]}</li>')
+            else:
+                # Regular paragraphs
+                html_lines.append(f'<p>{line}</p>')
         
-        # Replace bold text
-        content = content.replace('**', '<strong>').replace('<strong>', '</strong>', 1)
+        # Join all lines
+        content = '\n'.join(html_lines)
         
-        # Clean up extra breaks
-        content = content.replace('<br><br><br>', '<br><br>')
+        # Wrap consecutive <li> elements in <ul>
+        content = content.replace('<li>', '<ul><li>').replace('</li>\n<ul><li>', '</li>\n<li>')
+        content = content.replace('</li>\n<p>', '</li></ul>\n<p>')
+        content = content.replace('</li>\n<h', '</li></ul>\n<h')
+        content = content.replace('</li>\n<hr>', '</li></ul>\n<hr>')
+        
+        # Clean up any remaining issues
+        if content.endswith('</li>'):
+            content += '</ul>'
         
         return f"""
         <!DOCTYPE html>
@@ -390,21 +431,50 @@ Both AI models analyzed the same real market data above. Compare their interpret
                     border-bottom: 3px solid #3498db;
                     padding-bottom: 15px;
                     text-align: center;
+                    margin-bottom: 20px;
                 }}
                 h2 {{
-                    color: #34495e;
-                    margin-top: 30px;
+                    color: #fff;
+                    margin: 30px 0 20px 0;
                     padding: 15px;
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
                     border-radius: 8px;
                     text-align: center;
                 }}
                 h3 {{
-                    color: #7f8c8d;
+                    color: #34495e;
                     margin-top: 25px;
+                    margin-bottom: 15px;
                     border-left: 4px solid #3498db;
                     padding-left: 15px;
+                    background: #f8f9fa;
+                    padding: 10px 15px;
+                }}
+                p {{
+                    margin: 10px 0;
+                    line-height: 1.6;
+                }}
+                ul {{
+                    background: #f8f9fa;
+                    padding: 15px 20px;
+                    border-radius: 5px;
+                    margin: 15px 0;
+                }}
+                li {{
+                    margin: 8px 0;
+                }}
+                hr {{
+                    border: none;
+                    border-top: 2px solid #3498db;
+                    margin: 30px 0;
+                    opacity: 0.6;
+                }}
+                .error {{
+                    color: #e74c3c;
+                    background: #fdf2f2;
+                    padding: 10px;
+                    border-radius: 5px;
+                    border-left: 4px solid #e74c3c;
                 }}
                 .footer {{
                     margin-top: 50px;
@@ -413,6 +483,9 @@ Both AI models analyzed the same real market data above. Compare their interpret
                     font-size: 13px;
                     color: #7f8c8d;
                     text-align: center;
+                    background: #f8f9fa;
+                    padding: 20px;
+                    border-radius: 8px;
                 }}
             </style>
         </head>
