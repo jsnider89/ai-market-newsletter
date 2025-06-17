@@ -4,63 +4,221 @@ import openai
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import re
+import requests
+import json
 
-class DualAINewsletterBot:
+class RealDataAINewsletterBot:
     def __init__(self):
         # Initialize both AI clients
         self.anthropic_client = anthropic.Anthropic(
             api_key=os.getenv('ANTHROPIC_API_KEY')
         )
         
-        # OpenAI client
-        openai.api_key = os.getenv('OPENAI_API_KEY')
         self.openai_client = openai.OpenAI(
             api_key=os.getenv('OPENAI_API_KEY')
         )
         
-    def get_morning_prompt(self):
-        """Morning summary prompt focusing on overnight developments"""
-        return """Please search the web and summarize all major developments that occurred overnight (from the U.S. perspective) in macroeconomics, politics, and technology. Focus on events and releases from Asia, Europe, and early-morning U.S. markets.
+    def get_market_news(self):
+        """Fetch real financial news from Marketaux API"""
+        api_key = os.getenv('MARKETAUX_API_KEY')  # Free at marketaux.com
+        
+        if not api_key:
+            return "No Marketaux API key found. Sign up free at marketaux.com"
+        
+        try:
+            url = "https://api.marketaux.com/v1/news/all"
+            params = {
+                'api_token': api_key,
+                'symbols': 'AAPL,TSLA,MSFT,GOOGL,AMZN,SPY,QQQ',
+                'filter_entities': 'true',
+                'limit': 10,
+                'published_after': (datetime.now() - timedelta(hours=12)).strftime('%Y-%m-%dT%H:%M:%S')
+            }
+            
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+            
+            if 'data' in data:
+                news_items = []
+                for article in data['data'][:8]:  # Top 8 articles
+                    title = article.get('title', '')
+                    description = article.get('description', '')
+                    source = article.get('source', '')
+                    published = article.get('published_at', '')
+                    
+                    # Get sentiment if available
+                    entities = article.get('entities', [])
+                    sentiment_info = ""
+                    if entities:
+                        entity = entities[0]
+                        sentiment = entity.get('sentiment_score', 0)
+                        if sentiment > 0.1:
+                            sentiment_info = " (Positive sentiment)"
+                        elif sentiment < -0.1:
+                            sentiment_info = " (Negative sentiment)"
+                        else:
+                            sentiment_info = " (Neutral sentiment)"
+                    
+                    news_items.append(f"• {title}\n  {description}\n  Source: {source} | {published[:10]}{sentiment_info}")
+                
+                return "\\n\\n".join(news_items)
+            else:
+                return "Unable to fetch market news at this time"
+                
+        except Exception as e:
+            return f"Error fetching news: {str(e)}"
+    
+    def get_market_data(self):
+        """Fetch real market data from Finnhub API"""
+        api_key = os.getenv('FINNHUB_API_KEY')  # Free at finnhub.io
+        
+        if not api_key:
+            return "No Finnhub API key found. Sign up free at finnhub.io"
+        
+        try:
+            symbols = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'SPY', 'QQQ', 'DJI', 'IXIC']
+            market_data = []
+            
+            for symbol in symbols:
+                url = f"https://finnhub.io/api/v1/quote"
+                params = {
+                    'symbol': symbol,
+                    'token': api_key
+                }
+                
+                response = requests.get(url, params=params, timeout=5)
+                data = response.json()
+                
+                if 'c' in data:  # Current price
+                    current = data['c']
+                    change = data.get('d', 0)
+                    change_pct = data.get('dp', 0)
+                    
+                    direction = "📈" if change >= 0 else "📉"
+                    market_data.append(f"{symbol}: ${current:.2f} {direction} {change:+.2f} ({change_pct:+.2f}%)")
+            
+            return "\\n".join(market_data) if market_data else "Unable to fetch market data"
+            
+        except Exception as e:
+            return f"Error fetching market data: {str(e)}"
+    
+    def get_economic_calendar(self):
+        """Fetch economic calendar from Finnhub"""
+        api_key = os.getenv('FINNHUB_API_KEY')
+        
+        if not api_key:
+            return "Economic calendar unavailable - no Finnhub API key"
+        
+        try:
+            today = datetime.now().strftime('%Y-%m-%d')
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            
+            url = f"https://finnhub.io/api/v1/calendar/economic"
+            params = {
+                'from': today,
+                'to': tomorrow,
+                'token': api_key
+            }
+            
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+            
+            if 'economicCalendar' in data and data['economicCalendar']:
+                events = []
+                for event in data['economicCalendar'][:10]:  # Top 10 events
+                    time = event.get('time', '')
+                    event_name = event.get('event', '')
+                    impact = event.get('impact', '')
+                    country = event.get('country', '')
+                    
+                    if event_name and time:
+                        # Convert timestamp to readable time
+                        try:
+                            dt = datetime.fromtimestamp(int(time))
+                            time_str = dt.strftime('%I:%M %p ET')
+                        except:
+                            time_str = "TBD"
+                        
+                        events.append(f"• {time_str}: {event_name} ({country}) - Impact: {impact}")
+                
+                return "\\n".join(events) if events else "No major economic events scheduled"
+            else:
+                return "No economic events found for today/tomorrow"
+                
+        except Exception as e:
+            return f"Error fetching economic calendar: {str(e)}"
+    
+    def get_morning_prompt(self, news_data, market_data, calendar_data):
+        """Morning summary prompt with real data"""
+        return f"""I have gathered REAL current market data for you to analyze. Please create a comprehensive morning market summary based on this actual data:
 
-Prioritize:
-• Central bank activity (BoJ, ECB, RBA, etc.) - any overnight decisions or statements
-• Economic indicators released overnight (e.g., CPI, GDP, sentiment indices, PMI) from Asian and European markets
-• Political news or conflicts (G7 statements, international diplomacy, major elections)
-• Tech sector updates, including corporate earnings or announcements from overseas markets
-• Major financial market movements in Asia and Europe (indices, forex, commodities)
+CURRENT MARKET PRICES & PERFORMANCE:
+{market_data}
 
-After the overnight summary, include a forward-looking briefing of what's happening later today. Present today's key events in a table with event names, scheduled times (ET), and relevance to markets.
+RECENT FINANCIAL NEWS (Last 12 hours with sentiment):
+{news_data}
 
-Please use current, real-time information for today's date."""
+TODAY'S ECONOMIC CALENDAR:
+{calendar_data}
 
-    def get_evening_prompt(self):
-        """Evening summary prompt focusing on the day's events and tomorrow's outlook"""
-        return """Please search the web and summarize today's major market developments in macroeconomics, politics, and technology. Focus on today's key events that moved markets.
+You are provided with REAL, current market data above. Please analyze this actual information and provide:
 
-Focus on:
-• Major U.S. economic data releases and their market impact today
-• Federal Reserve or other central bank statements/actions today
-• Significant political developments affecting markets today
-• Key earnings reports or tech announcements today
-• Major market movements today (stocks, bonds, commodities, forex)
-• Any breaking news that moved markets today
+1. **Market Performance Analysis**: Review the current market prices and movements shown above. Which stocks/indices are up or down? What are the significant percentage moves?
 
-After today's summary, provide an outlook for tomorrow's key events. Present tomorrow's events in a table with event names, scheduled times (ET), and expected market relevance.
+2. **News Impact Assessment**: Based on the actual news headlines provided, explain:
+   - What are the key stories affecting markets?
+   - How might the sentiment (positive/negative/neutral) impact trading?
+   - Any earnings, economic data, or central bank developments
 
-Please use current, real-time information for today's events and tomorrow's outlook."""
+3. **Economic Calendar Priorities**: From the scheduled events listed above, which ones should traders watch most closely today?
+
+4. **Trading Outlook**: Given this real market data, what themes and opportunities should investors focus on?
+
+Please write this as a professional morning briefing using the actual data provided above. Do not search for additional information - analyze what I've given you."""
+
+    def get_evening_prompt(self, news_data, market_data, calendar_data):
+        """Evening summary prompt with real data"""
+        return f"""I have gathered REAL current market data for you to analyze. Please create a comprehensive evening market summary based on this actual data:
+
+TODAY'S FINAL MARKET PERFORMANCE:
+{market_data}
+
+TODAY'S FINANCIAL NEWS STORIES:
+{news_data}
+
+TOMORROW'S ECONOMIC CALENDAR:
+{calendar_data}
+
+You are provided with REAL, current market data above. Please analyze this actual information and provide:
+
+1. **Today's Market Wrap-Up**: Review the market performance data shown above. How did major stocks and indices close? What were the biggest winners and losers?
+
+2. **News-Driven Market Moves**: Based on the actual news stories provided, explain:
+   - Which headlines likely drove market action today?
+   - How did sentiment (positive/negative/neutral) play out in trading?
+   - Key earnings, economic releases, or policy developments
+
+3. **Tomorrow's Key Events**: From the economic calendar provided, what should traders prepare for tomorrow?
+
+4. **Market Themes**: What were today's dominant themes based on this real performance and news data?
+
+Please write this as a professional end-of-day briefing using the actual data provided above. Do not search for additional information - analyze what I've given you."""
 
     def query_claude(self, prompt):
         """Get response from Claude"""
         try:
-            print("🤖 Querying Claude...")
+            print("🤖 Querying Claude with real market data...")
             message = self.anthropic_client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=4000,
                 messages=[
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "user", 
+                        "content": prompt
+                    }
                 ]
             )
             return message.content[0].text
@@ -71,13 +229,13 @@ Please use current, real-time information for today's events and tomorrow's outl
     def query_chatgpt(self, prompt):
         """Get response from ChatGPT"""
         try:
-            print("🤖 Querying ChatGPT...")
+            print("🤖 Querying ChatGPT with real market data...")
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o",  # Latest GPT-4 model with web browsing
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "system", 
-                        "content": "You are a financial analyst. The user is asking for current market information. If you cannot access real-time data, clearly explain your limitations but then provide the most helpful analysis you can based on general market principles and typical patterns. Be specific about what data sources the user should check for real-time information."
+                        "content": "You are a professional financial analyst. The user will provide you with REAL current market data, news, and economic events. Your job is to analyze this actual data and provide insights. Do not attempt to search for additional information - work only with the data provided to you."
                     },
                     {
                         "role": "user", 
@@ -93,26 +251,45 @@ Please use current, real-time information for today's events and tomorrow's outl
             return f"ChatGPT Error: {str(e)}"
     
     def generate_dual_summary(self):
-        """Generate summaries from both AIs"""
+        """Generate summaries from both AIs with real data"""
         
         current_hour = datetime.now().hour
         
+        # Fetch real market data
+        print("📊 Fetching real market data...")
+        market_data = self.get_market_data()
+        
+        print("📰 Fetching financial news...")
+        news_data = self.get_market_news()
+        
+        print("📅 Fetching economic calendar...")
+        calendar_data = self.get_economic_calendar()
+        
         # Determine prompt based on time
         if current_hour == 11 or current_hour < 14:  # Morning summary
-            prompt = self.get_morning_prompt()
+            prompt_claude = self.get_morning_prompt(news_data, market_data, calendar_data)
+            prompt_chatgpt = self.get_morning_prompt(news_data, market_data, calendar_data)
             summary_type = "Morning Market Summary"
         else:  # Evening summary
-            prompt = self.get_evening_prompt()
+            prompt_claude = self.get_evening_prompt(news_data, market_data, calendar_data)
+            prompt_chatgpt = self.get_evening_prompt(news_data, market_data, calendar_data)
             summary_type = "Evening Market Summary"
         
-        print(f"📝 Using {summary_type} prompt...")
+        print(f"📝 Generating {summary_type} with real data...")
         
-        # Query both AIs with the same prompt
-        claude_response = self.query_claude(prompt)
-        chatgpt_response = self.query_chatgpt(prompt)
+        # Query both AIs with the same real data
+        claude_response = self.query_claude(prompt_claude)
+        chatgpt_response = self.query_chatgpt(prompt_chatgpt)
         
         # Combine responses
         combined_summary = f"""# {summary_type} - {datetime.now().strftime('%B %d, %Y')}
+
+## 📊 Real Market Data Used
+
+**Current Market Snapshot:**
+{market_data.replace(chr(10), chr(10))}
+
+---
 
 ## 🤖 Claude's Analysis
 
@@ -126,15 +303,13 @@ Please use current, real-time information for today's events and tomorrow's outl
 
 ---
 
-## 📊 Comparison Summary
+## 📊 Data Sources
 
-Both AI models were given identical prompts requesting current market analysis. Above you can see how each interpreted and responded to the same request.
+- **Market Data**: Finnhub API (Real-time prices)
+- **Financial News**: Marketaux API (Last 12 hours)
+- **Economic Calendar**: Finnhub API (Today/Tomorrow)
 
-**Key Differences to Note:**
-- Data sources and recency
-- Analysis style and depth
-- Specific insights highlighted
-- Formatting and organization
+Both AI models analyzed the same real market data above. Compare their interpretations and insights!
 """
         
         return combined_summary
@@ -161,7 +336,7 @@ Both AI models were given identical prompts requesting current market analysis. 
         
         # Create email
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f"{emoji} Dual AI Market Comparison - {datetime.now().strftime('%B %d, %Y')}"
+        msg['Subject'] = f"{emoji} Real Data AI Market Analysis - {datetime.now().strftime('%B %d, %Y')}"
         msg['From'] = sender_email
         msg['To'] = recipient_email
         
@@ -177,9 +352,9 @@ Both AI models were given identical prompts requesting current market analysis. 
                 server.starttls()
                 server.login(sender_email, sender_password)
                 server.send_message(msg)
-                print("✅ Dual AI summary sent successfully!")
+                print("✅ Real data AI summary sent successfully!")
                 print(f"   Type: {summary_type} Summary")
-                print(f"   Models: Claude + ChatGPT")
+                print(f"   Models: Claude + ChatGPT with real market data")
                 print(f"   Sent to: {recipient_email}")
                 print(f"   At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception as e:
@@ -188,22 +363,16 @@ Both AI models were given identical prompts requesting current market analysis. 
     def convert_markdown_to_html(self, content):
         """Convert markdown-style content to HTML for email"""
         
-        # Handle markdown tables first (before other conversions)
-        content = self.convert_tables_to_html(content)
-        
         # Convert headers
-        content = re.sub(r'^### (.*?)$', r'<h3>\1</h3>', content, flags=re.MULTILINE)
-        content = re.sub(r'^## (.*?)$', r'<h2>\1</h2>', content, flags=re.MULTILINE)
-        content = re.sub(r'^# (.*?)$', r'<h1>\1</h1>', content, flags=re.MULTILINE)
+        content = re.sub(r'^### (.*?)$', r'<h3>\\1</h3>', content, flags=re.MULTILINE)
+        content = re.sub(r'^## (.*?)$', r'<h2>\\1</h2>', content, flags=re.MULTILINE)
+        content = re.sub(r'^# (.*?)$', r'<h1>\\1</h1>', content, flags=re.MULTILINE)
         
         # Convert bold text
-        content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
-        
-        # Convert numbered lists
-        content = self.convert_numbered_lists(content)
+        content = re.sub(r'\\*\\*(.*?)\\*\\*', r'<strong>\\1</strong>', content)
         
         # Convert bullet points
-        lines = content.split('\n')
+        lines = content.split('\\n')
         in_list = False
         formatted_lines = []
         
@@ -223,115 +392,29 @@ Both AI models were given identical prompts requesting current market analysis. 
         if in_list:
             formatted_lines.append('</ul>')
         
-        content = '\n'.join(formatted_lines)
+        content = '\\n'.join(formatted_lines)
         
         # Handle horizontal rules
         content = content.replace('---', '<hr>')
         
-        # Convert paragraphs (but preserve existing HTML tags)
-        paragraphs = content.split('\n\n')
+        # Convert paragraphs
+        paragraphs = content.split('\\n\\n')
         formatted_paragraphs = []
         
         for para in paragraphs:
             para = para.strip()
             if not para:
                 continue
-            # Don't wrap HTML elements in paragraphs
-            if (para.startswith('<') and para.endswith('>')) or '<table>' in para or '<h' in para or '<ul>' in para or '<hr>' in para:
+            if (para.startswith('<') and para.endswith('>')) or '<h' in para or '<ul>' in para or '<hr>' in para:
                 formatted_paragraphs.append(para)
             else:
                 formatted_paragraphs.append(f'<p>{para}</p>')
         
-        content = '\n'.join(formatted_paragraphs)
+        content = '\\n'.join(formatted_paragraphs)
         
         # Clean up
-        content = re.sub(r'<p>\s*</p>', '', content)
+        content = re.sub(r'<p>\\s*</p>', '', content)
         
-        return content
-        
-    def convert_tables_to_html(self, content):
-        """Convert markdown tables to HTML tables"""
-        lines = content.split('\n')
-        result_lines = []
-        in_table = False
-        
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            
-            # Check if this line starts a table (contains |)
-            if '|' in line and not in_table:
-                # Look ahead to see if next line is a separator
-                if i + 1 < len(lines) and '---' in lines[i + 1] and '|' in lines[i + 1]:
-                    # Start of table
-                    in_table = True
-                    result_lines.append('<table>')
-                    
-                    # Process header row
-                    headers = [cell.strip() for cell in line.split('|') if cell.strip()]
-                    result_lines.append('<thead><tr>')
-                    for header in headers:
-                        result_lines.append(f'<th>{header}</th>')
-                    result_lines.append('</tr></thead>')
-                    
-                    # Skip separator line
-                    i += 2
-                    result_lines.append('<tbody>')
-                    continue
-                else:
-                    result_lines.append(line)
-            elif in_table and '|' in line:
-                # Table row
-                cells = [cell.strip() for cell in line.split('|') if cell.strip()]
-                result_lines.append('<tr>')
-                for cell in cells:
-                    result_lines.append(f'<td>{cell}</td>')
-                result_lines.append('</tr>')
-            elif in_table and '|' not in line.strip():
-                # End of table
-                result_lines.append('</tbody>')
-                result_lines.append('</table>')
-                result_lines.append(line)
-                in_table = False
-            else:
-                result_lines.append(line)
-            
-            i += 1
-        
-        # Close table if we ended while still in one
-        if in_table:
-            result_lines.append('</tbody>')
-            result_lines.append('</table>')
-        
-        return '\n'.join(result_lines)
-    
-    def convert_numbered_lists(self, content):
-        """Convert numbered lists to HTML"""
-        lines = content.split('\n')
-        result_lines = []
-        in_numbered_list = False
-        
-        for line in lines:
-            # Check for numbered list item (1. 2. etc.)
-            if re.match(r'^\s*\d+\.\s+', line):
-                if not in_numbered_list:
-                    result_lines.append('<ol>')
-                    in_numbered_list = True
-                item_text = re.sub(r'^\s*\d+\.\s+', '', line)
-                result_lines.append(f'<li>{item_text}</li>')
-            else:
-                if in_numbered_list:
-                    result_lines.append('</ol>')
-                    in_numbered_list = False
-                result_lines.append(line)
-        
-        if in_numbered_list:
-            result_lines.append('</ol>')
-        
-        return '\n'.join(result_lines)
-        
-    def get_html_template(self, content):
-        """Generate the complete HTML email template"""
         return f"""
         <!DOCTYPE html>
         <html>
@@ -385,14 +468,6 @@ Both AI models were given identical prompts requesting current market analysis. 
                     border-radius: 5px;
                     border-left: 4px solid #e9ecef;
                 }}
-                ol {{ 
-                    margin: 15px 0; 
-                    padding-left: 25px; 
-                    background: #f8f9fa;
-                    padding: 15px 25px;
-                    border-radius: 5px;
-                    border-left: 4px solid #e9ecef;
-                }}
                 li {{ 
                     margin: 10px 0; 
                     line-height: 1.5;
@@ -407,12 +482,13 @@ Both AI models were given identical prompts requesting current market analysis. 
                     margin: 40px 0;
                     opacity: 0.6;
                 }}
-                .ai-section {{
-                    background: #f8f9fa;
+                .market-data {{
+                    background: #e8f4fd;
+                    border: 1px solid #3498db;
                     border-radius: 8px;
-                    padding: 25px;
+                    padding: 20px;
                     margin: 20px 0;
-                    border-left: 5px solid #3498db;
+                    font-family: monospace;
                 }}
                 .footer {{ 
                     margin-top: 50px; 
@@ -425,41 +501,6 @@ Both AI models were given identical prompts requesting current market analysis. 
                     padding: 20px;
                     border-radius: 8px;
                 }}
-                table {{ 
-                    border-collapse: collapse; 
-                    width: 100%; 
-                    margin: 20px 0;
-                    background: white;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                }}
-                th {{ 
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    font-weight: bold;
-                    padding: 15px 12px;
-                    text-align: left;
-                }}
-                td {{ 
-                    border-bottom: 1px solid #eee;
-                    padding: 12px;
-                    text-align: left;
-                }}
-                tr:nth-child(even) {{
-                    background-color: #f8f9fa;
-                }}
-                tr:hover {{
-                    background-color: #e8f4fd;
-                }}
-                .comparison-header {{
-                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                    color: white;
-                    padding: 20px;
-                    border-radius: 8px;
-                    text-align: center;
-                    margin: 30px 0;
-                }}
                 strong {{
                     color: #2c3e50;
                 }}
@@ -470,8 +511,8 @@ Both AI models were given identical prompts requesting current market analysis. 
                 {content}
                 
                 <div class="footer">
-                    <p><strong>🤖 Dual AI Market Analysis</strong></p>
-                    <p>Claude (Anthropic) vs ChatGPT (OpenAI) • Same prompt, different perspectives</p>
+                    <p><strong>🚀 Real Data AI Market Analysis</strong></p>
+                    <p>Claude + ChatGPT analyzing live market data from Finnhub & Marketaux APIs</p>
                     <p>Generated automatically via GitHub Actions</p>
                     <p>Repository: <a href="https://github.com/{os.getenv('GITHUB_REPOSITORY', 'your-repo')}" style="color: #3498db;">{os.getenv('GITHUB_REPOSITORY', 'your-repo')}</a></p>
                     <p>Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
@@ -482,30 +523,31 @@ Both AI models were given identical prompts requesting current market analysis. 
         """
     
     def run_daily_summary(self):
-        """Main function to generate and send dual AI summary"""
+        """Main function to generate and send dual AI summary with real data"""
         current_hour = datetime.now().hour
         summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
         
-        print(f"🚀 Starting Dual AI {summary_type} summary generation...")
+        print(f"🚀 Starting Real Data AI {summary_type} summary...")
         print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
         print(f"   Models: Claude + ChatGPT")
+        print(f"   Data: Live APIs (Finnhub + Marketaux)")
         
-        # Generate dual summary
+        # Generate dual summary with real data
         dual_summary = self.generate_dual_summary()
         
         if "Error" in dual_summary and len(dual_summary) < 500:
             print(f"❌ AI Error: {dual_summary}")
             return
         
-        print("✅ Dual AI summary generated successfully!")
+        print("✅ Real data AI summary generated successfully!")
         print(f"   Length: {len(dual_summary)} characters")
         
         # Send via email
-        print("📧 Sending comparison email...")
+        print("📧 Sending real data comparison email...")
         self.send_email_summary(dual_summary)
         
-        print("🎉 Dual AI summary process completed!")
+        print("🎉 Real data AI summary process completed!")
 
 if __name__ == "__main__":
-    bot = DualAINewsletterBot()
+    bot = RealDataAINewsletterBot()
     bot.run_daily_summary()
