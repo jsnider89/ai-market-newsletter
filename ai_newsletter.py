@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 import os
 import re
 import requests
-import json
 
 class RealDataAINewsletterBot:
     def __init__(self):
@@ -23,7 +22,7 @@ class RealDataAINewsletterBot:
         
     def get_market_news(self):
         """Fetch real financial news from Marketaux API"""
-        api_key = os.getenv('MARKETAUX_API_KEY')  # Free at marketaux.com
+        api_key = os.getenv('MARKETAUX_API_KEY')
         
         if not api_key:
             return "No Marketaux API key found. Sign up free at marketaux.com"
@@ -43,13 +42,12 @@ class RealDataAINewsletterBot:
             
             if 'data' in data:
                 news_items = []
-                for article in data['data'][:8]:  # Top 8 articles
+                for article in data['data'][:8]:
                     title = article.get('title', '')
                     description = article.get('description', '')
                     source = article.get('source', '')
                     published = article.get('published_at', '')
                     
-                    # Get sentiment if available
                     entities = article.get('entities', [])
                     sentiment_info = ""
                     if entities:
@@ -64,7 +62,7 @@ class RealDataAINewsletterBot:
                     
                     news_items.append(f"• {title}\n  {description}\n  Source: {source} | {published[:10]}{sentiment_info}")
                 
-                return "\\n\\n".join(news_items)
+                return "\n\n".join(news_items)
             else:
                 return "Unable to fetch market news at this time"
                 
@@ -73,7 +71,7 @@ class RealDataAINewsletterBot:
     
     def get_market_data(self):
         """Fetch real market data from Finnhub API"""
-        api_key = os.getenv('FINNHUB_API_KEY')  # Free at finnhub.io
+        api_key = os.getenv('FINNHUB_API_KEY')
         
         if not api_key:
             return "No Finnhub API key found. Sign up free at finnhub.io"
@@ -92,7 +90,7 @@ class RealDataAINewsletterBot:
                 response = requests.get(url, params=params, timeout=5)
                 data = response.json()
                 
-                if 'c' in data:  # Current price
+                if 'c' in data:
                     current = data['c']
                     change = data.get('d', 0)
                     change_pct = data.get('dp', 0)
@@ -100,7 +98,7 @@ class RealDataAINewsletterBot:
                     direction = "📈" if change >= 0 else "📉"
                     market_data.append(f"{symbol}: ${current:.2f} {direction} {change:+.2f} ({change_pct:+.2f}%)")
             
-            return "\\n".join(market_data) if market_data else "Unable to fetch market data"
+            return "\n".join(market_data) if market_data else "Unable to fetch market data"
             
         except Exception as e:
             return f"Error fetching market data: {str(e)}"
@@ -128,14 +126,13 @@ class RealDataAINewsletterBot:
             
             if 'economicCalendar' in data and data['economicCalendar']:
                 events = []
-                for event in data['economicCalendar'][:10]:  # Top 10 events
+                for event in data['economicCalendar'][:10]:
                     time = event.get('time', '')
                     event_name = event.get('event', '')
                     impact = event.get('impact', '')
                     country = event.get('country', '')
                     
                     if event_name and time:
-                        # Convert timestamp to readable time
                         try:
                             dt = datetime.fromtimestamp(int(time))
                             time_str = dt.strftime('%I:%M %p ET')
@@ -144,7 +141,7 @@ class RealDataAINewsletterBot:
                         
                         events.append(f"• {time_str}: {event_name} ({country}) - Impact: {impact}")
                 
-                return "\\n".join(events) if events else "No major economic events scheduled"
+                return "\n".join(events) if events else "No major economic events scheduled"
             else:
                 return "No economic events found for today/tomorrow"
                 
@@ -215,10 +212,7 @@ Please write this as a professional end-of-day briefing using the actual data pr
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=4000,
                 messages=[
-                    {
-                        "role": "user", 
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt}
                 ]
             )
             return message.content[0].text
@@ -255,7 +249,6 @@ Please write this as a professional end-of-day briefing using the actual data pr
         
         current_hour = datetime.now().hour
         
-        # Fetch real market data
         print("📊 Fetching real market data...")
         market_data = self.get_market_data()
         
@@ -265,29 +258,26 @@ Please write this as a professional end-of-day briefing using the actual data pr
         print("📅 Fetching economic calendar...")
         calendar_data = self.get_economic_calendar()
         
-        # Determine prompt based on time
-        if current_hour == 11 or current_hour < 14:  # Morning summary
+        if current_hour == 11 or current_hour < 14:
             prompt_claude = self.get_morning_prompt(news_data, market_data, calendar_data)
             prompt_chatgpt = self.get_morning_prompt(news_data, market_data, calendar_data)
             summary_type = "Morning Market Summary"
-        else:  # Evening summary
+        else:
             prompt_claude = self.get_evening_prompt(news_data, market_data, calendar_data)
             prompt_chatgpt = self.get_evening_prompt(news_data, market_data, calendar_data)
             summary_type = "Evening Market Summary"
         
         print(f"📝 Generating {summary_type} with real data...")
         
-        # Query both AIs with the same real data
         claude_response = self.query_claude(prompt_claude)
         chatgpt_response = self.query_chatgpt(prompt_chatgpt)
         
-        # Combine responses
         combined_summary = f"""# {summary_type} - {datetime.now().strftime('%B %d, %Y')}
 
 ## 📊 Real Market Data Used
 
 **Current Market Snapshot:**
-{market_data.replace(chr(10), chr(10))}
+{market_data}
 
 ---
 
@@ -325,7 +315,6 @@ Both AI models analyzed the same real market data above. Compare their interpret
             print("Error: Missing email configuration. Check your secrets.")
             return
         
-        # Determine summary type for subject line
         current_hour = datetime.now().hour
         if current_hour == 11 or current_hour < 14:
             summary_type = "Morning"
@@ -334,19 +323,17 @@ Both AI models analyzed the same real market data above. Compare their interpret
             summary_type = "Evening"
             emoji = "🌆"
         
-        # Create email
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f"{emoji} Real Data AI Market Analysis - {datetime.now().strftime('%B %d, %Y')}"
         msg['From'] = sender_email
         msg['To'] = recipient_email
         
-        # Convert to HTML
-        html_content = self.convert_markdown_to_html(ai_response)
+        # Simple HTML conversion without regex issues
+        html_content = self.simple_html_conversion(ai_response)
         
         html_part = MIMEText(html_content, 'html')
         msg.attach(html_part)
         
-        # Send email
         try:
             with smtplib.SMTP('smtp.gmail.com', 587) as server:
                 server.starttls()
@@ -360,150 +347,22 @@ Both AI models analyzed the same real market data above. Compare their interpret
         except Exception as e:
             print(f"❌ Email error: {e}")
     
-    def convert_markdown_to_html(self, content):
-        """Convert markdown-style content to HTML for email"""
+    def simple_html_conversion(self, content):
+        """Simple HTML conversion without complex regex"""
         
-        # Convert headers
-        content = re.sub(r'^### (.*?)
-    
-    def run_daily_summary(self):
-        """Main function to generate and send dual AI summary with real data"""
-        current_hour = datetime.now().hour
-        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
+        # Replace line breaks with HTML breaks
+        content = content.replace('\n', '<br>')
         
-        print(f"🚀 Starting Real Data AI {summary_type} summary...")
-        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        print(f"   Models: Claude + ChatGPT")
-        print(f"   Data: Live APIs (Finnhub + Marketaux)")
+        # Replace headers manually
+        content = content.replace('# ', '<h1>').replace('<br>', '</h1><br>', 1)
+        content = content.replace('## ', '<h2>').replace('<br>', '</h2><br>')
+        content = content.replace('### ', '<h3>').replace('<br>', '</h3><br>')
         
-        # Generate dual summary with real data
-        dual_summary = self.generate_dual_summary()
+        # Replace bold text
+        content = content.replace('**', '<strong>').replace('<strong>', '</strong>', 1)
         
-        if "Error" in dual_summary and len(dual_summary) < 500:
-            print(f"❌ AI Error: {dual_summary}")
-            return
-        
-        print("✅ Real data AI summary generated successfully!")
-        print(f"   Length: {len(dual_summary)} characters")
-        
-        # Send via email
-        print("📧 Sending real data comparison email...")
-        self.send_email_summary(dual_summary)
-        
-        print("🎉 Real data AI summary process completed!")
-
-if __name__ == "__main__":
-    bot = RealDataAINewsletterBot()
-    bot.run_daily_summary(), r'<h3>\1</h3>', content, flags=re.MULTILINE)
-        content = re.sub(r'^## (.*?)
-    
-    def run_daily_summary(self):
-        """Main function to generate and send dual AI summary with real data"""
-        current_hour = datetime.now().hour
-        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
-        
-        print(f"🚀 Starting Real Data AI {summary_type} summary...")
-        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        print(f"   Models: Claude + ChatGPT")
-        print(f"   Data: Live APIs (Finnhub + Marketaux)")
-        
-        # Generate dual summary with real data
-        dual_summary = self.generate_dual_summary()
-        
-        if "Error" in dual_summary and len(dual_summary) < 500:
-            print(f"❌ AI Error: {dual_summary}")
-            return
-        
-        print("✅ Real data AI summary generated successfully!")
-        print(f"   Length: {len(dual_summary)} characters")
-        
-        # Send via email
-        print("📧 Sending real data comparison email...")
-        self.send_email_summary(dual_summary)
-        
-        print("🎉 Real data AI summary process completed!")
-
-if __name__ == "__main__":
-    bot = RealDataAINewsletterBot()
-    bot.run_daily_summary(), r'<h2>\1</h2>', content, flags=re.MULTILINE)
-        content = re.sub(r'^# (.*?)
-    
-    def run_daily_summary(self):
-        """Main function to generate and send dual AI summary with real data"""
-        current_hour = datetime.now().hour
-        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
-        
-        print(f"🚀 Starting Real Data AI {summary_type} summary...")
-        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        print(f"   Models: Claude + ChatGPT")
-        print(f"   Data: Live APIs (Finnhub + Marketaux)")
-        
-        # Generate dual summary with real data
-        dual_summary = self.generate_dual_summary()
-        
-        if "Error" in dual_summary and len(dual_summary) < 500:
-            print(f"❌ AI Error: {dual_summary}")
-            return
-        
-        print("✅ Real data AI summary generated successfully!")
-        print(f"   Length: {len(dual_summary)} characters")
-        
-        # Send via email
-        print("📧 Sending real data comparison email...")
-        self.send_email_summary(dual_summary)
-        
-        print("🎉 Real data AI summary process completed!")
-
-if __name__ == "__main__":
-    bot = RealDataAINewsletterBot()
-    bot.run_daily_summary(), r'<h1>\1</h1>', content, flags=re.MULTILINE)
-        
-        # Convert bold text
-        content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
-        
-        # Convert bullet points
-        lines = content.split('\n')
-        in_list = False
-        formatted_lines = []
-        
-        for line in lines:
-            if line.strip().startswith('•') or (line.strip().startswith('*') and not line.strip().startswith('**')):
-                if not in_list:
-                    formatted_lines.append('<ul>')
-                    in_list = True
-                item_text = line.strip()[1:].strip()
-                formatted_lines.append(f'<li>{item_text}</li>')
-            else:
-                if in_list:
-                    formatted_lines.append('</ul>')
-                    in_list = False
-                formatted_lines.append(line)
-        
-        if in_list:
-            formatted_lines.append('</ul>')
-        
-        content = '\n'.join(formatted_lines)
-        
-        # Handle horizontal rules
-        content = content.replace('---', '<hr>')
-        
-        # Convert paragraphs
-        paragraphs = content.split('\n\n')
-        formatted_paragraphs = []
-        
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
-                continue
-            if (para.startswith('<') and para.endswith('>')) or '<h' in para or '<ul>' in para or '<hr>' in para:
-                formatted_paragraphs.append(para)
-            else:
-                formatted_paragraphs.append(f'<p>{para}</p>')
-        
-        content = '\n'.join(formatted_paragraphs)
-        
-        # Clean up
-        content = re.sub(r'<p>\s*</p>', '', content)
+        # Clean up extra breaks
+        content = content.replace('<br><br><br>', '<br><br>')
         
         return f"""
         <!DOCTYPE html>
@@ -511,7 +370,7 @@ if __name__ == "__main__":
         <head>
             <meta charset="UTF-8">
             <style>
-                body {{ 
+                body {{
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                     line-height: 1.6;
                     color: #333;
@@ -526,73 +385,34 @@ if __name__ == "__main__":
                     border-radius: 8px;
                     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                 }}
-                h1 {{ 
-                    color: #2c3e50; 
-                    border-bottom: 3px solid #3498db; 
+                h1 {{
+                    color: #2c3e50;
+                    border-bottom: 3px solid #3498db;
                     padding-bottom: 15px;
                     text-align: center;
-                    margin-bottom: 30px;
                 }}
-                h2 {{ 
-                    color: #34495e; 
-                    margin-top: 40px;
-                    margin-bottom: 20px;
+                h2 {{
+                    color: #34495e;
+                    margin-top: 30px;
                     padding: 15px;
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     color: white;
                     border-radius: 8px;
                     text-align: center;
-                    font-size: 1.3em;
                 }}
-                h3 {{ 
-                    color: #7f8c8d; 
+                h3 {{
+                    color: #7f8c8d;
                     margin-top: 25px;
                     border-left: 4px solid #3498db;
                     padding-left: 15px;
                 }}
-                ul {{ 
-                    margin: 15px 0; 
-                    padding-left: 25px; 
-                    background: #f8f9fa;
-                    padding: 15px 25px;
-                    border-radius: 5px;
-                    border-left: 4px solid #e9ecef;
-                }}
-                li {{ 
-                    margin: 10px 0; 
-                    line-height: 1.5;
-                }}
-                p {{ 
-                    margin: 15px 0; 
-                    line-height: 1.6;
-                }}
-                hr {{ 
-                    border: none; 
-                    border-top: 3px solid #3498db; 
-                    margin: 40px 0;
-                    opacity: 0.6;
-                }}
-                .market-data {{
-                    background: #e8f4fd;
-                    border: 1px solid #3498db;
-                    border-radius: 8px;
-                    padding: 20px;
-                    margin: 20px 0;
-                    font-family: monospace;
-                }}
-                .footer {{ 
-                    margin-top: 50px; 
-                    padding-top: 25px; 
+                .footer {{
+                    margin-top: 50px;
+                    padding-top: 25px;
                     border-top: 2px solid #eee;
                     font-size: 13px;
                     color: #7f8c8d;
                     text-align: center;
-                    background: #f8f9fa;
-                    padding: 20px;
-                    border-radius: 8px;
-                }}
-                strong {{
-                    color: #2c3e50;
                 }}
             </style>
         </head>
@@ -602,9 +422,7 @@ if __name__ == "__main__":
                 
                 <div class="footer">
                     <p><strong>🚀 Real Data AI Market Analysis</strong></p>
-                    <p>Claude + ChatGPT analyzing live market data from Finnhub & Marketaux APIs</p>
-                    <p>Generated automatically via GitHub Actions</p>
-                    <p>Repository: <a href="https://github.com/{os.getenv('GITHUB_REPOSITORY', 'your-repo')}" style="color: #3498db;">{os.getenv('GITHUB_REPOSITORY', 'your-repo')}</a></p>
+                    <p>Claude + ChatGPT analyzing live market data</p>
                     <p>Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
                 </div>
             </div>
@@ -622,7 +440,6 @@ if __name__ == "__main__":
         print(f"   Models: Claude + ChatGPT")
         print(f"   Data: Live APIs (Finnhub + Marketaux)")
         
-        # Generate dual summary with real data
         dual_summary = self.generate_dual_summary()
         
         if "Error" in dual_summary and len(dual_summary) < 500:
@@ -632,7 +449,6 @@ if __name__ == "__main__":
         print("✅ Real data AI summary generated successfully!")
         print(f"   Length: {len(dual_summary)} characters")
         
-        # Send via email
         print("📧 Sending real data comparison email...")
         self.send_email_summary(dual_summary)
         
