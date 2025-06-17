@@ -629,6 +629,8 @@ if __name__ == "__main__":
         # Clean up
         content = re.sub(r'<p>\s*</p>', '', content)
         
+        return content
+        
     def convert_tables_to_html(self, content):
         """Convert markdown tables to HTML tables"""
         lines = content.split('\n')
