@@ -549,7 +549,7 @@ Based on article frequency, major themes in today's news include Federal Reserve
         
         return html_template
 
-    def convert_markdown_to_html(self, text):
+def convert_markdown_to_html(self, text):
         """Convert markdown-style formatting to HTML"""
         # Bold text
         text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
@@ -564,23 +564,39 @@ Based on article frequency, major themes in today's news include Federal Reserve
                 if 'MARKET PERFORMANCE' in line:
                     in_market_section = True
                     formatted_lines.append(line)
-                elif 'TOP NEWS STORIES' in line:
+                elif 'TOP MARKET & ECONOMY STORIES' in line or 'GENERAL NEWS' in line or 'TOP NEWS STORIES' in line:
                     in_market_section = False
                     formatted_lines.append(line)
                 elif in_market_section and line.strip() and any(ticker in line for ticker in self.symbols):
-                    # Format market data lines
-                    line = line.replace('🟢', '<span style="color: #27ae60;">🟢</span>')
-                    line = line.replace('🔴', '<span style="color: #e74c3c;">🔴</span>')
+                    # Format market data lines with colors
+                    if '🟢' in line:
+                        line = line.replace('🟢', '<span style="color: #27ae60;">🟢</span>')
+                    if '🔴' in line:
+                        line = line.replace('🔴', '<span style="color: #e74c3c;">🔴</span>')
                     # Make the line monospaced for better alignment
-                    formatted_lines.append(f'<div style="font-family: monospace; font-size: 14px; margin: 5px 0;">{line}</div>')
+                    formatted_line = '<div style="font-family: monospace; font-size: 14px; margin: 5px 0;">' + line + '</div>'
+                    formatted_lines.append(formatted_line)
                 else:
                     formatted_lines.append(line)
             
             text = '\n'.join(formatted_lines)
         
-        # Headers
-text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
-
+        # Convert headers - PROPERLY INDENTED
+        text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+        
+        # Line breaks and paragraphs
+        text = text.replace('\n\n', '</p><p>')
+        text = '<p>' + text + '</p>'
+        
+        # Clean up empty paragraphs and fix formatting
+        text = text.replace('<p></p>', '')
+        text = text.replace('<p><h3>', '<h3>')
+        text = text.replace('</h3></p>', '</h3>')
+        text = text.replace('<p><div', '<div')
+        text = text.replace('</div></p>', '</div>')
+        
+        return text
+    
     def send_report_email(self, html_content):
         """Email the AI-analyzed report"""
         sender_email = os.getenv('SENDER_EMAIL')
