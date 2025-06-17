@@ -596,7 +596,6 @@ def convert_markdown_to_html(self, text):
         text = text.replace('</div></p>', '</div>')
         
         return text
-    
     def send_report_email(self, html_content):
         """Email the AI-analyzed report"""
         sender_email = os.getenv('SENDER_EMAIL')
