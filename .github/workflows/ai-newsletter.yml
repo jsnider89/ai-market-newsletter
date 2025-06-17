@@ -1,0 +1,35 @@
+name: Daily AI Market Summary
+
+on:
+  schedule:
+    # 7:00 AM ET (11:00 UTC) - Morning summary
+    - cron: '0 11 * * 1-5'
+    # 5:00 PM ET (21:00 UTC) - Evening summary  
+    - cron: '0 21 * * 1-5'
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  generate-ai-summary:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: 📦 Install dependencies
+      run: |
+        pip install anthropic
+        
+    - name: 🤖 Generate and send AI summary
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+        SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+        RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: python ai_newsletter.py
