@@ -21,7 +21,7 @@ jobs:
         
     - name: 📦 Install dependencies
       run: |
-        pip install anthropic openai
+        pip install anthropic openai requests
         
     - name: 🤖 Generate dual AI summary
       env:
