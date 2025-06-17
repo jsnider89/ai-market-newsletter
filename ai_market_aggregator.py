@@ -236,13 +236,14 @@ Please create this briefing now."""
             return None
         
         try:
+            print(f"   API Key found: {api_key[:8]}...")
             headers = {
                 'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json'
             }
             
             data = {
-                'model': 'gpt-4-turbo-preview',  # or 'gpt-3.5-turbo' for cheaper option
+                'model': 'gpt-4-turbo',  # or 'gpt-3.5-turbo' for cheaper option
                 'messages': [
                     {
                         'role': 'system',
@@ -257,6 +258,7 @@ Please create this briefing now."""
                 'max_tokens': 4000
             }
             
+            print(f"   Sending request to OpenAI...")
             response = requests.post(
                 'https://api.openai.com/v1/chat/completions',
                 headers=headers,
@@ -264,15 +266,21 @@ Please create this briefing now."""
                 timeout=60
             )
             
+            print(f"   Response status: {response.status_code}")
+            
             if response.status_code == 200:
                 result = response.json()
+                print("   ✅ Successfully received AI analysis")
                 return result['choices'][0]['message']['content']
             else:
-                print(f"❌ OpenAI API error: {response.status_code} - {response.text}")
+                print(f"❌ OpenAI API error: {response.status_code}")
+                print(f"   Error details: {response.text}")
                 return None
                 
         except Exception as e:
             print(f"❌ Error calling OpenAI API: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def call_anthropic_api(self, prompt):
@@ -284,6 +292,7 @@ Please create this briefing now."""
             return None
         
         try:
+            print(f"   API Key found: {api_key[:8]}...")
             headers = {
                 'x-api-key': api_key,
                 'anthropic-version': '2023-06-01',
@@ -302,6 +311,7 @@ Please create this briefing now."""
                 'temperature': 0.7
             }
             
+            print(f"   Sending request to Anthropic...")
             response = requests.post(
                 'https://api.anthropic.com/v1/messages',
                 headers=headers,
@@ -309,18 +319,24 @@ Please create this briefing now."""
                 timeout=60
             )
             
+            print(f"   Response status: {response.status_code}")
+            
             if response.status_code == 200:
                 result = response.json()
+                print("   ✅ Successfully received AI analysis")
                 return result['content'][0]['text']
             else:
-                print(f"❌ Anthropic API error: {response.status_code} - {response.text}")
+                print(f"❌ Anthropic API error: {response.status_code}")
+                print(f"   Error details: {response.text}")
                 return None
                 
         except Exception as e:
             print(f"❌ Error calling Anthropic API: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
 
-    def get_ai_analysis(self, prompt):
+    def get_ai_analysis(self, prompt, market_data):
         """Get AI analysis from available API"""
         # Try OpenAI first
         if os.getenv('OPENAI_API_KEY'):
@@ -338,14 +354,14 @@ Please create this briefing now."""
         
         # Fallback to basic analysis if no AI available
         print("⚠️ No AI API configured - using basic analysis")
-        return self.create_basic_analysis(), "Basic Analysis"
+        return self.create_basic_analysis(market_data), "Basic Analysis"
 
-    def create_basic_analysis(self):
+    def create_basic_analysis(self, market_data):
         """Create a basic analysis without AI"""
-        return """**MARKET PERFORMANCE**
-{date}
+        return f"""**MARKET PERFORMANCE**
+{datetime.now().strftime('%B %d, %Y')}
 
-Today's market data has been collected. Please see the ticker performance above.
+{market_data}
 
 **TOP NEWS STORIES**
 
@@ -353,9 +369,7 @@ Today's market data has been collected. Please see the ticker performance above.
 
 Based on article frequency, major themes in today's news include Federal Reserve policy, technology sector developments, and geopolitical events. For detailed analysis and the top 15 stories with full summaries, please enable AI integration.
 
-**Looking Ahead:** Market participants await tomorrow's economic data releases and corporate earnings reports.""".format(
-            date=datetime.now().strftime('%B %d, %Y')
-        )
+**Looking Ahead:** Market participants await tomorrow's economic data releases and corporate earnings reports."""
 
     def format_email_html(self, ai_analysis, analysis_source):
         """Format the AI analysis for email"""
@@ -579,7 +593,7 @@ Based on article frequency, major themes in today's news include Federal Reserve
         
         # Step 4: Get AI analysis
         print("\n🤖 Step 4: Getting AI analysis...")
-        ai_analysis, analysis_source = self.get_ai_analysis(prompt)
+        ai_analysis, analysis_source = self.get_ai_analysis(prompt, market_data)
         
         # Step 5: Format and send email
         print("\n📧 Step 5: Formatting and sending email...")
