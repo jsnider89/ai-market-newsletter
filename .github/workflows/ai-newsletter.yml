@@ -1,13 +1,15 @@
-name: Dual AI Market Summary
+name: Real Data AI Market Summary
 
 on:
   schedule:
-    - cron: '0 11 * * 1-5'  # 7 AM ET
-    - cron: '0 21 * * 1-5'  # 5 PM ET
-  workflow_dispatch:
+    # 7:00 AM ET (11:00 UTC) - Morning summary
+    - cron: '0 11 * * 1-5'
+    # 5:00 PM ET (21:00 UTC) - Evening summary  
+    - cron: '0 21 * * 1-5'
+  workflow_dispatch: # Manual trigger for testing
 
 jobs:
-  generate-dual-ai-summary:
+  generate-real-data-ai-summary:
     runs-on: ubuntu-latest
     
     steps:
@@ -23,14 +25,14 @@ jobs:
       run: |
         pip install anthropic openai requests
         
-    - name: 🤖 Generate dual AI summary
-  env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-    FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-    MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
-    SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
-    SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
-    RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
-    GITHUB_REPOSITORY: ${{ github.repository }}
-  run: python ai_newsletter.py
+    - name: 🤖 Generate real data AI summary
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
+        SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+        SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+        RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: python ai_newsletter.py
