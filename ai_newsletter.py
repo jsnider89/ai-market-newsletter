@@ -192,8 +192,146 @@ Both AI models were given identical prompts requesting current market analysis. 
         content = self.convert_tables_to_html(content)
         
         # Convert headers
-        content = re.sub(r'^### (.*?)
+        content = re.sub(r'^### (.*?)$', r'<h3>\1</h3>', content, flags=re.MULTILINE)
+        content = re.sub(r'^## (.*?)$', r'<h2>\1</h2>', content, flags=re.MULTILINE)
+        content = re.sub(r'^# (.*?)$', r'<h1>\1</h1>', content, flags=re.MULTILINE)
         
+        # Convert bold text
+        content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
+        
+        # Convert numbered lists
+        content = self.convert_numbered_lists(content)
+        
+        # Convert bullet points
+        lines = content.split('\n')
+        in_list = False
+        formatted_lines = []
+        
+        for line in lines:
+            if line.strip().startswith('•') or (line.strip().startswith('*') and not line.strip().startswith('**')):
+                if not in_list:
+                    formatted_lines.append('<ul>')
+                    in_list = True
+                item_text = line.strip()[1:].strip()
+                formatted_lines.append(f'<li>{item_text}</li>')
+            else:
+                if in_list:
+                    formatted_lines.append('</ul>')
+                    in_list = False
+                formatted_lines.append(line)
+        
+        if in_list:
+            formatted_lines.append('</ul>')
+        
+        content = '\n'.join(formatted_lines)
+        
+        # Handle horizontal rules
+        content = content.replace('---', '<hr>')
+        
+        # Convert paragraphs (but preserve existing HTML tags)
+        paragraphs = content.split('\n\n')
+        formatted_paragraphs = []
+        
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
+            # Don't wrap HTML elements in paragraphs
+            if (para.startswith('<') and para.endswith('>')) or '<table>' in para or '<h' in para or '<ul>' in para or '<hr>' in para:
+                formatted_paragraphs.append(para)
+            else:
+                formatted_paragraphs.append(f'<p>{para}</p>')
+        
+        content = '\n'.join(formatted_paragraphs)
+        
+        # Clean up
+        content = re.sub(r'<p>\s*</p>', '', content)
+        
+        return content
+        
+    def convert_tables_to_html(self, content):
+        """Convert markdown tables to HTML tables"""
+        lines = content.split('\n')
+        result_lines = []
+        in_table = False
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            # Check if this line starts a table (contains |)
+            if '|' in line and not in_table:
+                # Look ahead to see if next line is a separator
+                if i + 1 < len(lines) and '---' in lines[i + 1] and '|' in lines[i + 1]:
+                    # Start of table
+                    in_table = True
+                    result_lines.append('<table>')
+                    
+                    # Process header row
+                    headers = [cell.strip() for cell in line.split('|') if cell.strip()]
+                    result_lines.append('<thead><tr>')
+                    for header in headers:
+                        result_lines.append(f'<th>{header}</th>')
+                    result_lines.append('</tr></thead>')
+                    
+                    # Skip separator line
+                    i += 2
+                    result_lines.append('<tbody>')
+                    continue
+                else:
+                    result_lines.append(line)
+            elif in_table and '|' in line:
+                # Table row
+                cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+                result_lines.append('<tr>')
+                for cell in cells:
+                    result_lines.append(f'<td>{cell}</td>')
+                result_lines.append('</tr>')
+            elif in_table and '|' not in line.strip():
+                # End of table
+                result_lines.append('</tbody>')
+                result_lines.append('</table>')
+                result_lines.append(line)
+                in_table = False
+            else:
+                result_lines.append(line)
+            
+            i += 1
+        
+        # Close table if we ended while still in one
+        if in_table:
+            result_lines.append('</tbody>')
+            result_lines.append('</table>')
+        
+        return '\n'.join(result_lines)
+    
+    def convert_numbered_lists(self, content):
+        """Convert numbered lists to HTML"""
+        lines = content.split('\n')
+        result_lines = []
+        in_numbered_list = False
+        
+        for line in lines:
+            # Check for numbered list item (1. 2. etc.)
+            if re.match(r'^\s*\d+\.\s+', line):
+                if not in_numbered_list:
+                    result_lines.append('<ol>')
+                    in_numbered_list = True
+                item_text = re.sub(r'^\s*\d+\.\s+', '', line)
+                result_lines.append(f'<li>{item_text}</li>')
+            else:
+                if in_numbered_list:
+                    result_lines.append('</ol>')
+                    in_numbered_list = False
+                result_lines.append(line)
+        
+        if in_numbered_list:
+            result_lines.append('</ol>')
+        
+        return '\n'.join(result_lines)
+        
+    def get_html_template(self, content):
+        """Generate the complete HTML email template"""
         return f"""
         <!DOCTYPE html>
         <html>
@@ -338,448 +476,6 @@ Both AI models were given identical prompts requesting current market analysis. 
                     <p>Repository: <a href="https://github.com/{os.getenv('GITHUB_REPOSITORY', 'your-repo')}" style="color: #3498db;">{os.getenv('GITHUB_REPOSITORY', 'your-repo')}</a></p>
                     <p>Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
                 </div>
-            </div>
-        </body>
-        </html>
-        """
-    
-    def run_daily_summary(self):
-        """Main function to generate and send dual AI summary"""
-        current_hour = datetime.now().hour
-        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
-        
-        print(f"🚀 Starting Dual AI {summary_type} summary generation...")
-        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        print(f"   Models: Claude + ChatGPT")
-        
-        # Generate dual summary
-        dual_summary = self.generate_dual_summary()
-        
-        if "Error" in dual_summary and len(dual_summary) < 500:
-            print(f"❌ AI Error: {dual_summary}")
-            return
-        
-        print("✅ Dual AI summary generated successfully!")
-        print(f"   Length: {len(dual_summary)} characters")
-        
-        # Send via email
-        print("📧 Sending comparison email...")
-        self.send_email_summary(dual_summary)
-        
-        print("🎉 Dual AI summary process completed!")
-
-if __name__ == "__main__":
-    bot = DualAINewsletterBot()
-    bot.run_daily_summary(), r'<h3>\1</h3>', content, flags=re.MULTILINE)
-        content = re.sub(r'^## (.*?)
-        
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                    max-width: 900px;
-                    margin: 0 auto;
-                    padding: 20px;
-                }}
-                h1 {{ 
-                    color: #2c3e50; 
-                    border-bottom: 3px solid #3498db; 
-                    padding-bottom: 10px;
-                    text-align: center;
-                }}
-                h2 {{ 
-                    color: #34495e; 
-                    margin-top: 30px;
-                    padding: 10px;
-                    background: #f8f9fa;
-                    border-left: 4px solid #3498db;
-                }}
-                h3 {{ color: #7f8c8d; }}
-                ul {{ margin: 10px 0; padding-left: 20px; }}
-                li {{ margin: 8px 0; }}
-                p {{ margin: 12px 0; }}
-                hr {{ 
-                    border: none; 
-                    border-top: 2px solid #eee; 
-                    margin: 30px 0;
-                }}
-                .footer {{ 
-                    margin-top: 40px; 
-                    padding-top: 20px; 
-                    border-top: 1px solid #eee;
-                    font-size: 12px;
-                    color: #7f8c8d;
-                    text-align: center;
-                }}
-                table {{ 
-                    border-collapse: collapse; 
-                    width: 100%; 
-                    margin: 15px 0;
-                }}
-                th, td {{ 
-                    border: 1px solid #ddd; 
-                    padding: 8px; 
-                    text-align: left;
-                }}
-                th {{ background-color: #f2f2f2; font-weight: bold; }}
-            </style>
-        </head>
-        <body>
-            <div class="content">
-                {content}
-            </div>
-            
-            <div class="footer">
-                <p><strong>Dual AI Market Analysis</strong></p>
-                <p>Claude (Anthropic) vs ChatGPT (OpenAI) • Same prompt, different perspectives</p>
-                <p>Generated automatically via GitHub Actions</p>
-                <p>Repository: <a href="https://github.com/{os.getenv('GITHUB_REPOSITORY', 'your-repo')}">{os.getenv('GITHUB_REPOSITORY', 'your-repo')}</a></p>
-                <p>Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
-            </div>
-        </body>
-        </html>
-        """
-    
-    def run_daily_summary(self):
-        """Main function to generate and send dual AI summary"""
-        current_hour = datetime.now().hour
-        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
-        
-        print(f"🚀 Starting Dual AI {summary_type} summary generation...")
-        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        print(f"   Models: Claude + ChatGPT")
-        
-        # Generate dual summary
-        dual_summary = self.generate_dual_summary()
-        
-        if "Error" in dual_summary and len(dual_summary) < 500:
-            print(f"❌ AI Error: {dual_summary}")
-            return
-        
-        print("✅ Dual AI summary generated successfully!")
-        print(f"   Length: {len(dual_summary)} characters")
-        
-        # Send via email
-        print("📧 Sending comparison email...")
-        self.send_email_summary(dual_summary)
-        
-        print("🎉 Dual AI summary process completed!")
-
-if __name__ == "__main__":
-    bot = DualAINewsletterBot()
-    bot.run_daily_summary(), r'<h2>\1</h2>', content, flags=re.MULTILINE)
-        content = re.sub(r'^# (.*?)
-        
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                    max-width: 900px;
-                    margin: 0 auto;
-                    padding: 20px;
-                }}
-                h1 {{ 
-                    color: #2c3e50; 
-                    border-bottom: 3px solid #3498db; 
-                    padding-bottom: 10px;
-                    text-align: center;
-                }}
-                h2 {{ 
-                    color: #34495e; 
-                    margin-top: 30px;
-                    padding: 10px;
-                    background: #f8f9fa;
-                    border-left: 4px solid #3498db;
-                }}
-                h3 {{ color: #7f8c8d; }}
-                ul {{ margin: 10px 0; padding-left: 20px; }}
-                li {{ margin: 8px 0; }}
-                p {{ margin: 12px 0; }}
-                hr {{ 
-                    border: none; 
-                    border-top: 2px solid #eee; 
-                    margin: 30px 0;
-                }}
-                .footer {{ 
-                    margin-top: 40px; 
-                    padding-top: 20px; 
-                    border-top: 1px solid #eee;
-                    font-size: 12px;
-                    color: #7f8c8d;
-                    text-align: center;
-                }}
-                table {{ 
-                    border-collapse: collapse; 
-                    width: 100%; 
-                    margin: 15px 0;
-                }}
-                th, td {{ 
-                    border: 1px solid #ddd; 
-                    padding: 8px; 
-                    text-align: left;
-                }}
-                th {{ background-color: #f2f2f2; font-weight: bold; }}
-            </style>
-        </head>
-        <body>
-            <div class="content">
-                {content}
-            </div>
-            
-            <div class="footer">
-                <p><strong>Dual AI Market Analysis</strong></p>
-                <p>Claude (Anthropic) vs ChatGPT (OpenAI) • Same prompt, different perspectives</p>
-                <p>Generated automatically via GitHub Actions</p>
-                <p>Repository: <a href="https://github.com/{os.getenv('GITHUB_REPOSITORY', 'your-repo')}">{os.getenv('GITHUB_REPOSITORY', 'your-repo')}</a></p>
-                <p>Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
-            </div>
-        </body>
-        </html>
-        """
-    
-    def run_daily_summary(self):
-        """Main function to generate and send dual AI summary"""
-        current_hour = datetime.now().hour
-        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
-        
-        print(f"🚀 Starting Dual AI {summary_type} summary generation...")
-        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        print(f"   Models: Claude + ChatGPT")
-        
-        # Generate dual summary
-        dual_summary = self.generate_dual_summary()
-        
-        if "Error" in dual_summary and len(dual_summary) < 500:
-            print(f"❌ AI Error: {dual_summary}")
-            return
-        
-        print("✅ Dual AI summary generated successfully!")
-        print(f"   Length: {len(dual_summary)} characters")
-        
-        # Send via email
-        print("📧 Sending comparison email...")
-        self.send_email_summary(dual_summary)
-        
-        print("🎉 Dual AI summary process completed!")
-
-if __name__ == "__main__":
-    bot = DualAINewsletterBot()
-    bot.run_daily_summary(), r'<h1>\1</h1>', content, flags=re.MULTILINE)
-        
-        # Convert bold text
-        content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
-        
-        # Convert numbered lists
-        content = self.convert_numbered_lists(content)
-        
-        # Convert bullet points
-        lines = content.split('\n')
-        in_list = False
-        formatted_lines = []
-        
-        for line in lines:
-            if line.strip().startswith('•') or (line.strip().startswith('*') and not line.strip().startswith('**')):
-                if not in_list:
-                    formatted_lines.append('<ul>')
-                    in_list = True
-                item_text = line.strip()[1:].strip()
-                formatted_lines.append(f'<li>{item_text}</li>')
-            else:
-                if in_list:
-                    formatted_lines.append('</ul>')
-                    in_list = False
-                formatted_lines.append(line)
-        
-        if in_list:
-            formatted_lines.append('</ul>')
-        
-        content = '\n'.join(formatted_lines)
-        
-        # Handle horizontal rules
-        content = content.replace('---', '<hr>')
-        
-        # Convert paragraphs (but preserve existing HTML tags)
-        paragraphs = content.split('\n\n')
-        formatted_paragraphs = []
-        
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
-                continue
-            # Don't wrap HTML elements in paragraphs
-            if (para.startswith('<') and para.endswith('>')) or '<table>' in para or '<h' in para or '<ul>' in para or '<hr>' in para:
-                formatted_paragraphs.append(para)
-            else:
-                formatted_paragraphs.append(f'<p>{para}</p>')
-        
-        content = '\n'.join(formatted_paragraphs)
-        
-        # Clean up
-        content = re.sub(r'<p>\s*</p>', '', content)
-        
-        return content
-        
-    def convert_tables_to_html(self, content):
-        """Convert markdown tables to HTML tables"""
-        lines = content.split('\n')
-        result_lines = []
-        in_table = False
-        
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            
-            # Check if this line starts a table (contains |)
-            if '|' in line and not in_table:
-                # Look ahead to see if next line is a separator
-                if i + 1 < len(lines) and '---' in lines[i + 1] and '|' in lines[i + 1]:
-                    # Start of table
-                    in_table = True
-                    result_lines.append('<table>')
-                    
-                    # Process header row
-                    headers = [cell.strip() for cell in line.split('|') if cell.strip()]
-                    result_lines.append('<thead><tr>')
-                    for header in headers:
-                        result_lines.append(f'<th>{header}</th>')
-                    result_lines.append('</tr></thead>')
-                    
-                    # Skip separator line
-                    i += 2
-                    result_lines.append('<tbody>')
-                    continue
-                else:
-                    result_lines.append(line)
-            elif in_table and '|' in line:
-                # Table row
-                cells = [cell.strip() for cell in line.split('|') if cell.strip()]
-                result_lines.append('<tr>')
-                for cell in cells:
-                    result_lines.append(f'<td>{cell}</td>')
-                result_lines.append('</tr>')
-            elif in_table and '|' not in line.strip():
-                # End of table
-                result_lines.append('</tbody>')
-                result_lines.append('</table>')
-                result_lines.append(line)
-                in_table = False
-            else:
-                result_lines.append(line)
-            
-            i += 1
-        
-        # Close table if we ended while still in one
-        if in_table:
-            result_lines.append('</tbody>')
-            result_lines.append('</table>')
-        
-        return '\n'.join(result_lines)
-    
-    def convert_numbered_lists(self, content):
-        """Convert numbered lists to HTML"""
-        lines = content.split('\n')
-        result_lines = []
-        in_numbered_list = False
-        
-        for line in lines:
-            # Check for numbered list item (1. 2. etc.)
-            if re.match(r'^\s*\d+\.\s+', line):
-                if not in_numbered_list:
-                    result_lines.append('<ol>')
-                    in_numbered_list = True
-                item_text = re.sub(r'^\s*\d+\.\s+', '', line)
-                result_lines.append(f'<li>{item_text}</li>')
-            else:
-                if in_numbered_list:
-                    result_lines.append('</ol>')
-                    in_numbered_list = False
-                result_lines.append(line)
-        
-        if in_numbered_list:
-            result_lines.append('</ol>')
-        
-        return '\n'.join(result_lines)
-        
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                    max-width: 900px;
-                    margin: 0 auto;
-                    padding: 20px;
-                }}
-                h1 {{ 
-                    color: #2c3e50; 
-                    border-bottom: 3px solid #3498db; 
-                    padding-bottom: 10px;
-                    text-align: center;
-                }}
-                h2 {{ 
-                    color: #34495e; 
-                    margin-top: 30px;
-                    padding: 10px;
-                    background: #f8f9fa;
-                    border-left: 4px solid #3498db;
-                }}
-                h3 {{ color: #7f8c8d; }}
-                ul {{ margin: 10px 0; padding-left: 20px; }}
-                li {{ margin: 8px 0; }}
-                p {{ margin: 12px 0; }}
-                hr {{ 
-                    border: none; 
-                    border-top: 2px solid #eee; 
-                    margin: 30px 0;
-                }}
-                .footer {{ 
-                    margin-top: 40px; 
-                    padding-top: 20px; 
-                    border-top: 1px solid #eee;
-                    font-size: 12px;
-                    color: #7f8c8d;
-                    text-align: center;
-                }}
-                table {{ 
-                    border-collapse: collapse; 
-                    width: 100%; 
-                    margin: 15px 0;
-                }}
-                th, td {{ 
-                    border: 1px solid #ddd; 
-                    padding: 8px; 
-                    text-align: left;
-                }}
-                th {{ background-color: #f2f2f2; font-weight: bold; }}
-            </style>
-        </head>
-        <body>
-            <div class="content">
-                {content}
-            </div>
-            
-            <div class="footer">
-                <p><strong>Dual AI Market Analysis</strong></p>
-                <p>Claude (Anthropic) vs ChatGPT (OpenAI) • Same prompt, different perspectives</p>
-                <p>Generated automatically via GitHub Actions</p>
-                <p>Repository: <a href="https://github.com/{os.getenv('GITHUB_REPOSITORY', 'your-repo')}">{os.getenv('GITHUB_REPOSITORY', 'your-repo')}</a></p>
-                <p>Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
             </div>
         </body>
         </html>
