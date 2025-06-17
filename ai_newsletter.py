@@ -20,56 +20,66 @@ class RealDataAINewsletterBot:
             api_key=os.getenv('OPENAI_API_KEY')
         )
         
-    def get_market_news(self):
-        """Fetch real financial news from Marketaux API"""
-        api_key = os.getenv('MARKETAUX_API_KEY')
+    def get_rss_news(self):
+        """Fetch news from RSS feeds across the political spectrum"""
         
-        if not api_key:
-            return "No Marketaux API key found. Sign up free at marketaux.com"
+        rss_feeds = [
+            # Conservative sources
+            ("The Blaze", "https://www.theblaze.com/feeds/feed.rss"),
+            ("Newsmax", "https://newsmax.com/rss/Newsfront/16"),
+            ("Daily Signal", "https://dailysignal.com/feed/"),
+            
+            # Mainstream financial
+            ("Reuters Business", "https://feeds.reuters.com/reuters/businessNews"),
+            ("MarketWatch", "https://feeds.marketwatch.com/marketwatch/topstories/"),
+            ("CNBC", "https://feeds.cnbc.com/cnbc/id/100003114/device/rss/rss.html"),
+            
+            # Additional sources
+            ("Yahoo Finance", "https://feeds.finance.yahoo.com/rss/2.0/topstories"),
+            ("Bloomberg", "https://feeds.bloomberg.com/politics/news.rss")
+        ]
         
-        try:
-            # Get broader market news (not just specific tickers)
-            url = "https://api.marketaux.com/v1/news/all"
-            params = {
-                'api_token': api_key,
-                'filter_entities': 'true',
-                'limit': 15,
-                'language': 'en',
-                'published_after': (datetime.now() - timedelta(hours=12)).strftime('%Y-%m-%dT%H:%M:%S')
-            }
-            
-            response = requests.get(url, params=params, timeout=10)
-            data = response.json()
-            
-            if 'data' in data:
-                news_items = []
-                for article in data['data'][:10]:  # Top 10 articles
-                    title = article.get('title', '')
-                    description = article.get('description', '')
-                    source = article.get('source', '')
-                    published = article.get('published_at', '')
-                    
-                    # Get sentiment if available
-                    entities = article.get('entities', [])
-                    sentiment_info = ""
-                    if entities:
-                        entity = entities[0]
-                        sentiment = entity.get('sentiment_score', 0)
-                        if sentiment > 0.1:
-                            sentiment_info = " (Positive sentiment)"
-                        elif sentiment < -0.1:
-                            sentiment_info = " (Negative sentiment)"
-                        else:
-                            sentiment_info = " (Neutral sentiment)"
-                    
-                    news_items.append(f"• {title}\n  {description}\n  Source: {source} | {published[:10]}{sentiment_info}")
+        all_news = []
+        
+        for source_name, feed_url in rss_feeds:
+            try:
+                response = requests.get(feed_url, timeout=10, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                })
                 
-                return "\n\n".join(news_items)
-            else:
-                return "Unable to fetch market news at this time"
+                if response.status_code == 200:
+                    # Simple RSS parsing without external libraries
+                    content = response.text
+                    
+                    # Extract titles and descriptions using regex
+                    import re
+                    
+                    # Find all items
+                    items = re.findall(r'<item>(.*?)</item>', content, re.DOTALL)
+                    
+                    for item in items[:3]:  # Top 3 from each source
+                        # Extract title
+                        title_match = re.search(r'<title><!\[CDATA\[(.*?)\]\]></title>|<title>(.*?)</title>', item, re.DOTALL)
+                        title = ""
+                        if title_match:
+                            title = title_match.group(1) or title_match.group(2) or ""
+                            title = title.strip()
+                        
+                        # Extract description
+                        desc_match = re.search(r'<description><!\[CDATA\[(.*?)\]\]></description>|<description>(.*?)</description>', item, re.DOTALL)
+                        desc = ""
+                        if desc_match:
+                            desc = desc_match.group(1) or desc_match.group(2) or ""
+                            desc = desc.strip()[:200] + "..." if len(desc) > 200 else desc
+                        
+                        if title:
+                            all_news.append(f"• {title}\n  {desc}\n  Source: {source_name}")
                 
-        except Exception as e:
-            return f"Error fetching news: {str(e)}"
+            except Exception as e:
+                print(f"Error fetching RSS from {source_name}: {str(e)}")
+                continue
+        
+        return "\n\n".join(all_news[:12]) if all_news else "Unable to fetch RSS news feeds"
     
     def get_market_data(self):
         """Fetch real market data from Finnhub API"""
@@ -277,8 +287,8 @@ Please write this as a professional end-of-day briefing using the actual data pr
         print("📊 Fetching real market data...")
         market_data = self.get_market_data()
         
-        print("📰 Fetching financial news...")
-        news_data = self.get_market_news()
+        print("📰 Fetching RSS news from multiple sources...")
+        news_data = self.get_rss_news()
         
         print("📅 Fetching economic calendar...")
         calendar_data = self.get_economic_calendar()
