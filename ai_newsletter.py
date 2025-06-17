@@ -364,15 +364,105 @@ Both AI models analyzed the same real market data above. Compare their interpret
         """Convert markdown-style content to HTML for email"""
         
         # Convert headers
-        content = re.sub(r'^### (.*?)$', r'<h3>\\1</h3>', content, flags=re.MULTILINE)
-        content = re.sub(r'^## (.*?)$', r'<h2>\\1</h2>', content, flags=re.MULTILINE)
-        content = re.sub(r'^# (.*?)$', r'<h1>\\1</h1>', content, flags=re.MULTILINE)
+        content = re.sub(r'^### (.*?)
+    
+    def run_daily_summary(self):
+        """Main function to generate and send dual AI summary with real data"""
+        current_hour = datetime.now().hour
+        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
+        
+        print(f"🚀 Starting Real Data AI {summary_type} summary...")
+        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        print(f"   Models: Claude + ChatGPT")
+        print(f"   Data: Live APIs (Finnhub + Marketaux)")
+        
+        # Generate dual summary with real data
+        dual_summary = self.generate_dual_summary()
+        
+        if "Error" in dual_summary and len(dual_summary) < 500:
+            print(f"❌ AI Error: {dual_summary}")
+            return
+        
+        print("✅ Real data AI summary generated successfully!")
+        print(f"   Length: {len(dual_summary)} characters")
+        
+        # Send via email
+        print("📧 Sending real data comparison email...")
+        self.send_email_summary(dual_summary)
+        
+        print("🎉 Real data AI summary process completed!")
+
+if __name__ == "__main__":
+    bot = RealDataAINewsletterBot()
+    bot.run_daily_summary(), r'<h3>\1</h3>', content, flags=re.MULTILINE)
+        content = re.sub(r'^## (.*?)
+    
+    def run_daily_summary(self):
+        """Main function to generate and send dual AI summary with real data"""
+        current_hour = datetime.now().hour
+        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
+        
+        print(f"🚀 Starting Real Data AI {summary_type} summary...")
+        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        print(f"   Models: Claude + ChatGPT")
+        print(f"   Data: Live APIs (Finnhub + Marketaux)")
+        
+        # Generate dual summary with real data
+        dual_summary = self.generate_dual_summary()
+        
+        if "Error" in dual_summary and len(dual_summary) < 500:
+            print(f"❌ AI Error: {dual_summary}")
+            return
+        
+        print("✅ Real data AI summary generated successfully!")
+        print(f"   Length: {len(dual_summary)} characters")
+        
+        # Send via email
+        print("📧 Sending real data comparison email...")
+        self.send_email_summary(dual_summary)
+        
+        print("🎉 Real data AI summary process completed!")
+
+if __name__ == "__main__":
+    bot = RealDataAINewsletterBot()
+    bot.run_daily_summary(), r'<h2>\1</h2>', content, flags=re.MULTILINE)
+        content = re.sub(r'^# (.*?)
+    
+    def run_daily_summary(self):
+        """Main function to generate and send dual AI summary with real data"""
+        current_hour = datetime.now().hour
+        summary_type = "Morning" if (current_hour == 11 or current_hour < 14) else "Evening"
+        
+        print(f"🚀 Starting Real Data AI {summary_type} summary...")
+        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        print(f"   Models: Claude + ChatGPT")
+        print(f"   Data: Live APIs (Finnhub + Marketaux)")
+        
+        # Generate dual summary with real data
+        dual_summary = self.generate_dual_summary()
+        
+        if "Error" in dual_summary and len(dual_summary) < 500:
+            print(f"❌ AI Error: {dual_summary}")
+            return
+        
+        print("✅ Real data AI summary generated successfully!")
+        print(f"   Length: {len(dual_summary)} characters")
+        
+        # Send via email
+        print("📧 Sending real data comparison email...")
+        self.send_email_summary(dual_summary)
+        
+        print("🎉 Real data AI summary process completed!")
+
+if __name__ == "__main__":
+    bot = RealDataAINewsletterBot()
+    bot.run_daily_summary(), r'<h1>\1</h1>', content, flags=re.MULTILINE)
         
         # Convert bold text
-        content = re.sub(r'\\*\\*(.*?)\\*\\*', r'<strong>\\1</strong>', content)
+        content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
         
         # Convert bullet points
-        lines = content.split('\\n')
+        lines = content.split('\n')
         in_list = False
         formatted_lines = []
         
@@ -392,13 +482,13 @@ Both AI models analyzed the same real market data above. Compare their interpret
         if in_list:
             formatted_lines.append('</ul>')
         
-        content = '\\n'.join(formatted_lines)
+        content = '\n'.join(formatted_lines)
         
         # Handle horizontal rules
         content = content.replace('---', '<hr>')
         
         # Convert paragraphs
-        paragraphs = content.split('\\n\\n')
+        paragraphs = content.split('\n\n')
         formatted_paragraphs = []
         
         for para in paragraphs:
@@ -410,10 +500,10 @@ Both AI models analyzed the same real market data above. Compare their interpret
             else:
                 formatted_paragraphs.append(f'<p>{para}</p>')
         
-        content = '\\n'.join(formatted_paragraphs)
+        content = '\n'.join(formatted_paragraphs)
         
         # Clean up
-        content = re.sub(r'<p>\\s*</p>', '', content)
+        content = re.sub(r'<p>\s*</p>', '', content)
         
         return f"""
         <!DOCTYPE html>
