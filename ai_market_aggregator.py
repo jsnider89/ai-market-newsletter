@@ -191,7 +191,7 @@ class AIMarketAggregator:
 {chr(10).join(articles_text)}
 
 ## YOUR TASK:
-Create a daily briefing with TWO DISTINCT SECTIONS:
+Create a daily briefing with THREE DISTINCT SECTIONS:
 
 **SECTION 1 - MARKET PERFORMANCE:**
 Present the market data in a clean, formatted way. For each ticker, show:
@@ -202,15 +202,27 @@ Present the market data in a clean, formatted way. For each ticker, show:
 - Use 🟢 for positive changes and 🔴 for negative changes
 Keep the original formatting style from the input data.
 
-**SECTION 2 - TOP NEWS STORIES:**
-Identify and summarize the 15 most important news stories based on:
-- Frequency of coverage (stories appearing in multiple sources indicate importance)
-- Overall market significance
-- Federal Reserve or major policy implications
-- Breaking news or today's developments
-- General economic or geopolitical importance
+**SECTION 2 - TOP MARKET & ECONOMY STORIES (5 stories):**
+Identify the 5 most important MARKET and ECONOMY-SPECIFIC stories based on:
+- TIMELINESS: Most recent stories get priority (today's news over older news)
+- REPETITION: Stories covered by multiple sources are more important
+- Must be directly related to:
+  * Stock market movements
+  * Federal Reserve decisions
+  * Economic data releases (inflation, jobs, GDP, etc.)
+  * Major financial institution news
+  * Currency/commodity movements
+  * Corporate earnings or major business deals
 
-For each news story:
+**SECTION 3 - GENERAL NEWS STORIES (10 stories):**
+Identify the 10 most important remaining news stories based on:
+- Frequency of coverage across sources
+- General significance (politics, technology, geopolitics, etc.)
+- Breaking news or major developments
+- Policy changes or legislative news
+- International affairs
+
+**FOR EACH STORY IN BOTH NEWS SECTIONS:**
 - Write a clear, descriptive headline
 - Provide a full paragraph (4-6 sentences) that explains:
   * What happened
@@ -232,16 +244,17 @@ Be specific with times if mentioned. If no specific events are mentioned for tom
 
 **FORMAT GUIDELINES:**
 - Start with "MARKET PERFORMANCE" section
-- Follow with "TOP NEWS STORIES" section
-- Number stories 1-15 in order of importance
-- Use clear section breaks
+- Follow with "TOP MARKET & ECONOMY STORIES" section (5 stories)
+- Then "GENERAL NEWS" section (10 stories)
+- Number stories 1-5 and 1-10 in their respective sections
+- Use clear section breaks between all three sections
 - End with the specific "Looking Ahead" section
 
 **WRITING STYLE:**
 - Professional but conversational
 - Focus on clarity and readability
 - Be objective and balanced
-- Avoid repetitive ticker analysis
+- Prioritize timeliness for market stories
 
 Please create this briefing now."""
 
