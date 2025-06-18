@@ -597,7 +597,7 @@ def convert_markdown_to_html(self, text):
         
         return text
     
-     def send_report_email(self, html_content):
+    def send_report_email(self, html_content):
         """Email the AI-analyzed report"""
         sender_email = os.getenv('SENDER_EMAIL')
         sender_password = os.getenv('SENDER_PASSWORD')
