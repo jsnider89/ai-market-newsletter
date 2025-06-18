@@ -187,7 +187,7 @@ class AIMarketAggregator:
 ## TODAY'S MARKET DATA:
 {market_data}
 
-## NEWS ARTICLES FROM 22 SOURCES:
+## NEWS ARTICLES FROM 23 SOURCES:
 {chr(10).join(articles_text)}
 
 ## YOUR TASK:
@@ -396,13 +396,63 @@ Please create this briefing now."""
 
 {market_data}
 
-**TOP NEWS STORIES**
+**TOP MARKET & ECONOMY STORIES**
 
-**Note:** AI analysis unavailable. This is a basic summary of collected data. Please configure OPENAI_API_KEY or ANTHROPIC_API_KEY for full AI-powered analysis.
+**Note:** AI analysis unavailable. Please configure OPENAI_API_KEY or ANTHROPIC_API_KEY for full analysis.
+
+**GENERAL NEWS**
 
 Based on article frequency, major themes in today's news include Federal Reserve policy, technology sector developments, and geopolitical events. For detailed analysis and the top 15 stories with full summaries, please enable AI integration.
 
 **Looking Ahead:** Market participants await tomorrow's economic data releases and corporate earnings reports."""
+
+    def convert_markdown_to_html(self, text):
+        """Convert markdown-style formatting to HTML"""
+        # Bold text
+        text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+        
+        # Format market data section specially
+        if 'MARKET PERFORMANCE' in text:
+            lines = text.split('\n')
+            formatted_lines = []
+            in_market_section = False
+            
+            for line in lines:
+                if 'MARKET PERFORMANCE' in line:
+                    in_market_section = True
+                    formatted_lines.append(line)
+                elif 'TOP MARKET & ECONOMY STORIES' in line or 'GENERAL NEWS' in line or 'Looking Ahead' in line:
+                    in_market_section = False
+                    formatted_lines.append(line)
+                elif in_market_section and line.strip() and any(ticker in line for ticker in self.symbols):
+                    # Format market data lines with colors
+                    if '🟢' in line:
+                        line = line.replace('🟢', '<span style="color: #27ae60;">🟢</span>')
+                    if '🔴' in line:
+                        line = line.replace('🔴', '<span style="color: #e74c3c;">🔴</span>')
+                    # Make the line monospaced for better alignment
+                    formatted_line = '<div style="font-family: monospace; font-size: 14px; margin: 5px 0;">' + line + '</div>'
+                    formatted_lines.append(formatted_line)
+                else:
+                    formatted_lines.append(line)
+            
+            text = '\n'.join(formatted_lines)
+        
+        # Convert headers - properly closed regex
+        text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+        
+        # Line breaks and paragraphs
+        text = text.replace('\n\n', '</p><p>')
+        text = '<p>' + text + '</p>'
+        
+        # Clean up empty paragraphs and fix formatting
+        text = text.replace('<p></p>', '')
+        text = text.replace('<p><h3>', '<h3>')
+        text = text.replace('</h3></p>', '</h3>')
+        text = text.replace('<p><div', '<div')
+        text = text.replace('</div></p>', '</div>')
+        
+        return text
 
     def format_email_html(self, ai_analysis, analysis_source):
         """Format the AI analysis for email"""
@@ -548,146 +598,6 @@ Based on article frequency, major themes in today's news include Federal Reserve
         )
         
         return html_template
-
-def convert_markdown_to_html(self, text):
-        """Convert markdown-style formatting to HTML"""
-        # Bold text
-        text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-        
-        # Format market data section specially
-        if 'MARKET PERFORMANCE' in text:
-            lines = text.split('\n')
-            formatted_lines = []
-            in_market_section = False
-            
-            for line in lines:
-                if 'MARKET PERFORMANCE' in line:
-                    in_market_section = True
-                    formatted_lines.append(line)
-                elif 'TOP MARKET & ECONOMY STORIES' in line or 'GENERAL NEWS' in line or 'TOP NEWS STORIES' in line:
-                    in_market_section = False
-                    formatted_lines.append(line)
-                elif in_market_section and line.strip() and any(ticker in line for ticker in self.symbols):
-                    # Format market data lines with colors
-                    if '🟢' in line:
-                        line = line.replace('🟢', '<span style="color: #27ae60;">🟢</span>')
-                    if '🔴' in line:
-                        line = line.replace('🔴', '<span style="color: #e74c3c;">🔴</span>')
-                    # Make the line monospaced for better alignment
-                    formatted_line = '<div style="font-family: monospace; font-size: 14px; margin: 5px 0;">' + line + '</div>'
-                    formatted_lines.append(formatted_line)
-                else:
-                    formatted_lines.append(line)
-            
-            text = '\n'.join(formatted_lines)
-        
-        # Convert headers - PROPERLY INDENTED
-        text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
-        
-        # Line breaks and paragraphs
-        text = text.replace('\n\n', '</p><p>')
-        text = '<p>' + text + '</p>'
-        
-        # Clean up empty paragraphs and fix formatting
-        text = text.replace('<p></p>', '')
-        text = text.replace('<p><h3>', '<h3>')
-        text = text.replace('</h3></p>', '</h3>')
-        text = text.replace('<p><div', '<div')
-        text = text.replace('</div></p>', '</div>')
-        
-        return text
-    
-    def send_report_email(self, html_content):
-        """Email the AI-analyzed report"""
-        sender_email = os.getenv('SENDER_EMAIL')
-        sender_password = os.getenv('SENDER_PASSWORD')
-        recipient_email = os.getenv('RECIPIENT_EMAIL')
-        
-        if not all([sender_email, sender_password, recipient_email]):
-            print("❌ Missing email configuration")
-            return False
-        
-        try:
-            msg = MIMEMultipart()
-            msg['Subject'] = f"📊 AI Market Intelligence - {datetime.now().strftime('%B %d, %Y')}"
-            msg['From'] = sender_email
-            msg['To'] = recipient_email
-            
-            msg.attach(MIMEText(html_content, 'html'))
-            
-            with smtplib.SMTP('smtp.gmail.com', 587) as server:
-                server.starttls()
-                server.login(sender_email, sender_password)
-                server.send_message(msg)
-            
-            print("✅ AI analysis emailed successfully!")
-            print(f"   Sent to: {recipient_email}")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Email error: {e}")
-            return False
-
-    def run(self):
-        """Main execution function"""
-        print("🚀 AI MARKET AGGREGATOR - Starting Analysis")
-        print(f"   Symbols: {', '.join(self.symbols)}")
-        print(f"   RSS Feeds: {len(self.rss_feeds)} sources")
-        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        print("-" * 60)
-        
-        # Step 1: Fetch market data
-        print("\n📊 Step 1: Fetching market data...")
-        market_data = self.fetch_market_data()
-        
-        # Step 2: Fetch RSS feeds
-        print("\n📰 Step 2: Collecting news articles...")
-        articles, feed_statuses = self.fetch_all_rss_feeds()
-        
-        # Step 3: Prepare AI prompt
-        print(f"\n🧮 Step 3: Preparing AI analysis ({len(articles)} articles)...")
-        prompt = self.prepare_ai_prompt(market_data, articles)
-        print(f"   Prompt size: {len(prompt):,} characters")
-        
-        # Step 4: Get AI analysis
-        print("\n🤖 Step 4: Getting AI analysis...")
-        ai_analysis, analysis_source = self.get_ai_analysis(prompt, market_data)
-        
-        # Step 5: Format and send email
-        print("\n📧 Step 5: Formatting and sending email...")
-        html_content = self.format_email_html(ai_analysis, analysis_source)
-        
-        if self.send_report_email(html_content):
-            print("\n🎉 AI market analysis completed successfully!")
-        else:
-            print("\n⚠️ Analysis completed but email failed")
-        
-        # Summary
-        print("\n" + "=" * 60)
-        print("📊 EXECUTION SUMMARY")
-        print("=" * 60)
-        print(f"Articles processed: {len(articles)}")
-        print(f"Analysis source: {analysis_source}")
-        print(f"Email sent: {'Yes' if self.send_report_email else 'No'}")
-        print(f"Total execution time: Check GitHub Actions logs")
-
-if __name__ == "__main__":
-    aggregator = AIMarketAggregator()
-    aggregator.run()
-, r'<h3>\1</h3>', text, flags=re.MULTILINE)
-        
-        # Line breaks and paragraphs
-        text = text.replace('\n\n', '</p><p>')
-        text = f'<p>{text}</p>'
-        
-        # Clean up
-        text = text.replace('<p></p>', '')
-        text = text.replace('<p><h3>', '<h3>')
-        text = text.replace('</h3></p>', '</h3>')
-        text = text.replace('<p><div', '<div')
-        text = text.replace('</div></p>', '</div>')
-        
-        return text
 
     def send_report_email(self, html_content):
         """Email the AI-analyzed report"""
