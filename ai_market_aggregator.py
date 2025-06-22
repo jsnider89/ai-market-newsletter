@@ -523,7 +523,454 @@ Based on article frequency, major themes in today's news include Federal Reserve
             text = '\n'.join(formatted_lines)
         
         # Convert headers - properly closed regex
-        text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{2,3} (.+)
+
+    def format_email_html(self, ai_analysis, analysis_source):
+        """Format the AI analysis for email"""
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f5f5f5;
+                }}
+                .container {{
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }}
+                .header {{
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 3px solid #2c3e50;
+                }}
+                .header h1 {{
+                    color: #2c3e50;
+                    margin: 0;
+                    font-size: 28px;
+                }}
+                .meta {{
+                    color: #666;
+                    font-size: 14px;
+                    text-align: center;
+                    margin-top: 10px;
+                }}
+                .market-section {{
+                    background-color: #f0f8ff;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin-bottom: 30px;
+                    border-left: 4px solid #4169e1;
+                }}
+                .market-section h2 {{
+                    color: #2c3e50;
+                    margin-top: 0;
+                }}
+                .news-section {{
+                    margin-top: 30px;
+                }}
+                .news-section h2 {{
+                    color: #2c3e50;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }}
+                .story {{
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 1px solid #eee;
+                }}
+                .story:last-child {{
+                    border-bottom: none;
+                }}
+                .story h3 {{
+                    color: #2c3e50;
+                    font-size: 18px;
+                    margin-bottom: 10px;
+                }}
+                .story p {{
+                    color: #444;
+                    margin: 10px 0;
+                }}
+                .sources {{
+                    font-style: italic;
+                    color: #666;
+                    font-size: 14px;
+                }}
+                .ticker {{
+                    font-family: 'Courier New', monospace;
+                    font-weight: bold;
+                    color: #4169e1;
+                    background-color: #f0f8ff;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                }}
+                .footer {{
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 2px solid #eee;
+                    text-align: center;
+                    color: #666;
+                    font-size: 12px;
+                }}
+                strong {{
+                    color: #2c3e50;
+                }}
+                hr {{
+                    border: none;
+                    border-top: 1px solid #eee;
+                    margin: 20px 0;
+                }}
+                pre {{
+                    background-color: #f5f5f5;
+                    padding: 10px;
+                    border-radius: 5px;
+                    overflow-x: auto;
+                    font-family: 'Courier New', monospace;
+                    font-size: 14px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📊 Daily Market & News Briefing</h1>
+                    <div class="meta">
+                        Generated: {timestamp}<br>
+                        Analysis by: {source}
+                    </div>
+                </div>
+                
+                <div class="content">
+                    {content}
+                </div>
+                
+                <div class="footer">
+                    <p>This report was automatically generated by AI Market Aggregator</p>
+                    <p>Tracking: QQQ | SPY | DXY | IWM | GLD | BTCUSD | MP</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """.format(
+            timestamp=datetime.now().strftime('%B %d, %Y at %I:%M %p UTC'),
+            source=analysis_source,
+            content=self.convert_markdown_to_html(ai_analysis)
+        )
+        
+        return html_template
+
+    def send_report_email(self, html_content):
+        """Email the AI-analyzed report"""
+        sender_email = os.getenv('SENDER_EMAIL')
+        sender_password = os.getenv('SENDER_PASSWORD')
+        recipient_email = os.getenv('RECIPIENT_EMAIL')
+        
+        if not all([sender_email, sender_password, recipient_email]):
+            print("❌ Missing email configuration")
+            return False
+        
+        try:
+            msg = MIMEMultipart()
+            msg['Subject'] = f"📊 AI Market Intelligence - {datetime.now().strftime('%B %d, %Y')}"
+            msg['From'] = sender_email
+            msg['To'] = recipient_email
+            
+            msg.attach(MIMEText(html_content, 'html'))
+            
+            with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+            
+            print("✅ AI analysis emailed successfully!")
+            print(f"   Sent to: {recipient_email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Email error: {e}")
+            return False
+
+    def run(self):
+        """Main execution function"""
+        print("🚀 AI MARKET AGGREGATOR - Starting Enhanced Analysis")
+        print(f"   Symbols: {', '.join(self.symbols)}")
+        print(f"   RSS Feeds: {len(self.rss_feeds)} sources")
+        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        print(f"   AI Model: o4-mini with enhanced reasoning")
+        print("-" * 60)
+        
+        # Step 1: Fetch market data
+        print("\n📊 Step 1: Fetching market data...")
+        market_data = self.fetch_market_data()
+        
+        # Step 2: Fetch RSS feeds
+        print("\n📰 Step 2: Collecting news articles...")
+        articles, feed_statuses = self.fetch_all_rss_feeds()
+        
+        # Step 3: Prepare enhanced AI prompt
+        print(f"\n🧮 Step 3: Preparing enhanced AI analysis ({len(articles)} articles)...")
+        prompt = self.prepare_ai_prompt_enhanced(market_data, articles)
+        print(f"   Prompt size: {len(prompt):,} characters")
+        print(f"   Using enhanced reasoning capabilities with o4-mini")
+        
+        # Step 4: Get AI analysis
+        print("\n🤖 Step 4: Getting AI analysis with enhanced reasoning...")
+        ai_analysis, analysis_source = self.get_ai_analysis(prompt, market_data)
+        
+        # Step 5: Format and send email
+        print("\n📧 Step 5: Formatting and sending email...")
+        html_content = self.format_email_html(ai_analysis, analysis_source)
+        
+        email_sent = self.send_report_email(html_content)
+        
+        # Summary
+        print("\n" + "=" * 60)
+        print("📊 EXECUTION SUMMARY")
+        print("=" * 60)
+        print(f"Articles processed: {len(articles)}")
+        print(f"Analysis source: {analysis_source}")
+        print(f"Email sent: {'Yes' if email_sent else 'No'}")
+        print(f"Total execution time: Check GitHub Actions logs")
+
+if __name__ == "__main__":
+    aggregator = AIMarketAggregator()
+    aggregator.run(), r'<h3>\1</h3>', text, flags=re.MULTILINE)
+        
+        # Format "Sources:" lines specially to ensure proper spacing
+        text = re.sub(r'^(Sources?:.*?)
+
+    def format_email_html(self, ai_analysis, analysis_source):
+        """Format the AI analysis for email"""
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f5f5f5;
+                }}
+                .container {{
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }}
+                .header {{
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 3px solid #2c3e50;
+                }}
+                .header h1 {{
+                    color: #2c3e50;
+                    margin: 0;
+                    font-size: 28px;
+                }}
+                .meta {{
+                    color: #666;
+                    font-size: 14px;
+                    text-align: center;
+                    margin-top: 10px;
+                }}
+                .market-section {{
+                    background-color: #f0f8ff;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin-bottom: 30px;
+                    border-left: 4px solid #4169e1;
+                }}
+                .market-section h2 {{
+                    color: #2c3e50;
+                    margin-top: 0;
+                }}
+                .news-section {{
+                    margin-top: 30px;
+                }}
+                .news-section h2 {{
+                    color: #2c3e50;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }}
+                .story {{
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 1px solid #eee;
+                }}
+                .story:last-child {{
+                    border-bottom: none;
+                }}
+                .story h3 {{
+                    color: #2c3e50;
+                    font-size: 18px;
+                    margin-bottom: 10px;
+                }}
+                .story p {{
+                    color: #444;
+                    margin: 10px 0;
+                }}
+                .sources {{
+                    font-style: italic;
+                    color: #666;
+                    font-size: 14px;
+                }}
+                .ticker {{
+                    font-family: 'Courier New', monospace;
+                    font-weight: bold;
+                    color: #4169e1;
+                    background-color: #f0f8ff;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                }}
+                .footer {{
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 2px solid #eee;
+                    text-align: center;
+                    color: #666;
+                    font-size: 12px;
+                }}
+                strong {{
+                    color: #2c3e50;
+                }}
+                hr {{
+                    border: none;
+                    border-top: 1px solid #eee;
+                    margin: 20px 0;
+                }}
+                pre {{
+                    background-color: #f5f5f5;
+                    padding: 10px;
+                    border-radius: 5px;
+                    overflow-x: auto;
+                    font-family: 'Courier New', monospace;
+                    font-size: 14px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📊 Daily Market & News Briefing</h1>
+                    <div class="meta">
+                        Generated: {timestamp}<br>
+                        Analysis by: {source}
+                    </div>
+                </div>
+                
+                <div class="content">
+                    {content}
+                </div>
+                
+                <div class="footer">
+                    <p>This report was automatically generated by AI Market Aggregator</p>
+                    <p>Tracking: QQQ | SPY | DXY | IWM | GLD | BTCUSD | MP</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """.format(
+            timestamp=datetime.now().strftime('%B %d, %Y at %I:%M %p UTC'),
+            source=analysis_source,
+            content=self.convert_markdown_to_html(ai_analysis)
+        )
+        
+        return html_template
+
+    def send_report_email(self, html_content):
+        """Email the AI-analyzed report"""
+        sender_email = os.getenv('SENDER_EMAIL')
+        sender_password = os.getenv('SENDER_PASSWORD')
+        recipient_email = os.getenv('RECIPIENT_EMAIL')
+        
+        if not all([sender_email, sender_password, recipient_email]):
+            print("❌ Missing email configuration")
+            return False
+        
+        try:
+            msg = MIMEMultipart()
+            msg['Subject'] = f"📊 AI Market Intelligence - {datetime.now().strftime('%B %d, %Y')}"
+            msg['From'] = sender_email
+            msg['To'] = recipient_email
+            
+            msg.attach(MIMEText(html_content, 'html'))
+            
+            with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+            
+            print("✅ AI analysis emailed successfully!")
+            print(f"   Sent to: {recipient_email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Email error: {e}")
+            return False
+
+    def run(self):
+        """Main execution function"""
+        print("🚀 AI MARKET AGGREGATOR - Starting Enhanced Analysis")
+        print(f"   Symbols: {', '.join(self.symbols)}")
+        print(f"   RSS Feeds: {len(self.rss_feeds)} sources")
+        print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        print(f"   AI Model: o4-mini with enhanced reasoning")
+        print("-" * 60)
+        
+        # Step 1: Fetch market data
+        print("\n📊 Step 1: Fetching market data...")
+        market_data = self.fetch_market_data()
+        
+        # Step 2: Fetch RSS feeds
+        print("\n📰 Step 2: Collecting news articles...")
+        articles, feed_statuses = self.fetch_all_rss_feeds()
+        
+        # Step 3: Prepare enhanced AI prompt
+        print(f"\n🧮 Step 3: Preparing enhanced AI analysis ({len(articles)} articles)...")
+        prompt = self.prepare_ai_prompt_enhanced(market_data, articles)
+        print(f"   Prompt size: {len(prompt):,} characters")
+        print(f"   Using enhanced reasoning capabilities with o4-mini")
+        
+        # Step 4: Get AI analysis
+        print("\n🤖 Step 4: Getting AI analysis with enhanced reasoning...")
+        ai_analysis, analysis_source = self.get_ai_analysis(prompt, market_data)
+        
+        # Step 5: Format and send email
+        print("\n📧 Step 5: Formatting and sending email...")
+        html_content = self.format_email_html(ai_analysis, analysis_source)
+        
+        email_sent = self.send_report_email(html_content)
+        
+        # Summary
+        print("\n" + "=" * 60)
+        print("📊 EXECUTION SUMMARY")
+        print("=" * 60)
+        print(f"Articles processed: {len(articles)}")
+        print(f"Analysis source: {analysis_source}")
+        print(f"Email sent: {'Yes' if email_sent else 'No'}")
+        print(f"Total execution time: Check GitHub Actions logs")
+
+if __name__ == "__main__":
+    aggregator = AIMarketAggregator()
+    aggregator.run(), r'<div class="sources">\1</div>', text, flags=re.MULTILINE)
         
         # Line breaks and paragraphs
         text = text.replace('\n\n', '</p><p>')
@@ -535,6 +982,8 @@ Based on article frequency, major themes in today's news include Federal Reserve
         text = text.replace('</h3></p>', '</h3>')
         text = text.replace('<p><div', '<div')
         text = text.replace('</div></p>', '</div>')
+        text = text.replace('<div class="sources">', '</p><div class="sources">')
+        text = text.replace('</div><p>', '</div><p style="margin-top: 10px;">')
         
         return text
 
