@@ -748,7 +748,7 @@ if __name__ == "__main__":
     aggregator.run(), r'<h3>\1</h3>', text, flags=re.MULTILINE
         
         # Format "Sources:" lines specially to ensure proper spacing
-        text = re.sub(r'^(Sources?:.*?)
+        text = re.sub(r'^(Sources?:.*?)$', r'<div class="sources">\1</div>', text, flags=re.MULTILINE)
 
     def format_email_html(self, ai_analysis, analysis_source):
         """Format the AI analysis for email"""
