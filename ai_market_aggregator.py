@@ -745,7 +745,7 @@ Based on article frequency, major themes in today's news include Federal Reserve
 
 if __name__ == "__main__":
     aggregator = AIMarketAggregator()
-    aggregator.run(), r'<h3>\1</h3>', text, flags=re.MULTILINE)
+    aggregator.run(), r'<h3>\1</h3>', text, flags=re.MULTILINE
         
         # Format "Sources:" lines specially to ensure proper spacing
         text = re.sub(r'^(Sources?:.*?)
