@@ -229,19 +229,20 @@ Use pattern recognition to identify the 5 most significant market/economy storie
 **SECTION 3 - GENERAL NEWS STORIES (10 stories):**
 Identify the 10 most important non-financial stories using similar cross-source analysis.
 
-**FOR EACH STORY IN BOTH NEWS SECTIONS:**
-- Write a clear, descriptive headline
-- Provide a full paragraph (4-6 sentences) that explains:
-  * What happened
-  * Why it's significant
-  * The broader context or implications
-  * Any relevant background information
-- Include source attribution (which outlets reported it)
+**CRITICAL INSTRUCTIONS FOR ALL STORIES:**
+- You MUST provide COMPLETE details for ALL 15 stories (5 market + 10 general)
+- DO NOT abbreviate or say "additional stories available upon request"
+- DO NOT use placeholders like "5-10: See full briefing"
+- EVERY story needs:
+  * A clear, descriptive headline
+  * A FULL paragraph (4-6 sentences) explaining what happened, why it's significant, context, and implications
+  * Source attribution showing which outlets reported it
+- Number the stories clearly: 1-5 for market stories, 1-10 for general news
 
 **LOOKING AHEAD - {tomorrow_str}:**
 Based on patterns in today's news, identify specific events scheduled for tomorrow and key themes to monitor. Be specific with times if mentioned. If no specific events are mentioned for tomorrow, note key themes to watch.
 
-Use your analytical capabilities to provide deeper insights than simple summarization. Focus on connections, patterns, and implications across the data."""
+IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMPLETE details. Do not truncate or abbreviate any section. The full analysis is required for each story."""
 
         return prompt
 
