@@ -276,7 +276,7 @@ Please create this briefing now."""
             }
             
             data = {
-                'model': 'gpt-4o',  # or 'gpt-3.5-turbo' for even cheaper option
+                'model': 'o4-mini',  # or 'gpt-3.5-turbo' for even cheaper option
                 'messages': [
                     {
                         'role': 'system',
