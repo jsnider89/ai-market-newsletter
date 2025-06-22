@@ -523,7 +523,7 @@ Based on article frequency, major themes in today's news include Federal Reserve
             text = '\n'.join(formatted_lines)
         
         # Convert headers - properly closed regex
-        text = re.sub(r'^#{2,3} (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#{2,3} (.+)
 
     def format_email_html(self, ai_analysis, analysis_source):
         """Format the AI analysis for email"""
@@ -748,7 +748,7 @@ if __name__ == "__main__":
     aggregator.run(), r'<h3>\1</h3>', text, flags=re.MULTILINE)
         
         # Format "Sources:" lines specially to ensure proper spacing
-text = re.sub(r'^(Sources?:.*?)$', r'<div class="sources">\1</div>', text, flags=re.MULTILINE)
+        text = re.sub(r'^(Sources?:.*?)
 
     def format_email_html(self, ai_analysis, analysis_source):
         """Format the AI analysis for email"""
