@@ -745,10 +745,10 @@ Based on article frequency, major themes in today's news include Federal Reserve
 
 if __name__ == "__main__":
     aggregator = AIMarketAggregator()
-    aggregator.run(), r'<h3>\1</h3>', text, flags=re.MULTILINE
+    aggregator.run(), r'<h3>\1</h3>', text, flags=re.MULTILINE)
         
         # Format "Sources:" lines specially to ensure proper spacing
-        text = re.sub(r'^(Sources?:.*?)
+text = re.sub(r'^(Sources?:.*?)$', r'<div class="sources">\1</div>', text, flags=re.MULTILINE)
 
     def format_email_html(self, ai_analysis, analysis_source):
         """Format the AI analysis for email"""
