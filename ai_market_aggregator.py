@@ -370,11 +370,11 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
     def get_ai_analysis(self, prompt, market_data):
         """Get AI analysis from available API"""
         # Try enhanced OpenAI first
-        if os.getenv('OPENAI_API_KEY'):
-            print("🤖 Calling OpenAI o4-mini for enhanced analysis...")
-            analysis = self.call_openai_api_enhanced(prompt)
-            if analysis:
-                return analysis, "OpenAI o4-mini (Enhanced)"
+        #if os.getenv('OPENAI_API_KEY'):
+            #print("🤖 Calling OpenAI o4-mini for enhanced analysis...")
+            #analysis = self.call_openai_api_enhanced(prompt)
+            #if analysis:
+                #return analysis, "OpenAI o4-mini (Enhanced)"
         
         # Try Anthropic if OpenAI fails or not configured
         if os.getenv('ANTHROPIC_API_KEY'):
