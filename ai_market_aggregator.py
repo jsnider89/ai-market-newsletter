@@ -459,20 +459,25 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
         if os.getenv('OPENAI_API_KEY'):
             print("🤖 Calling OpenAI o4-mini for enhanced analysis...")
             analysis = self.call_openai_api_enhanced(prompt)
+            print(f"   DEBUG: OpenAI returned: {analysis is not None}")  # Add this
+            print(f"   DEBUG: Analysis type: {type(analysis)}")  # Add this
             if analysis:
+                print(f"   DEBUG: Analysis length: {len(analysis)} characters")  # Add this
                 return analysis, "OpenAI o4-mini (Enhanced)"
+            else:
+                 print("   DEBUG: OpenAI returned None, would normally try Anthropic")  # Add this
         
         # Try Anthropic if OpenAI fails or not configured
         if os.getenv('ANTHROPIC_API_KEY'):
             print("🤖 Calling Anthropic Claude for analysis...")
             analysis = self.call_anthropic_api(prompt)
-            print(f"   DEBUG: OpenAI returned: {analysis is not None}")  # Add this
-            print(f"   DEBUG: Analysis type: {type(analysis)}")  # Add this
+            #print(f"   DEBUG: OpenAI returned: {analysis is not None}")  # Add this
+            #print(f"   DEBUG: Analysis type: {type(analysis)}")  # Add this
             if analysis:
-                print(f"   DEBUG: Analysis length: {len(analysis)} characters")  # Add this
+                #print(f"   DEBUG: Analysis length: {len(analysis)} characters")  # Add this
                 return analysis, "Anthropic Claude"
-            else:
-                 print("   DEBUG: OpenAI returned None, would normally try Anthropic")  # Add this
+            #else:
+                 #print("   DEBUG: OpenAI returned None, would normally try Anthropic")  # Add this
         
         # Fallback to basic analysis if no AI available
         print("⚠️ No AI API configured - using basic analysis")
