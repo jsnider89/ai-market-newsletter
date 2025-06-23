@@ -463,11 +463,11 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
                 return analysis, "OpenAI o4-mini (Enhanced)"
         
         # Try Anthropic if OpenAI fails or not configured
-        if os.getenv('ANTHROPIC_API_KEY'):
-            print("🤖 Calling Anthropic Claude for analysis...")
-            analysis = self.call_anthropic_api(prompt)
-            if analysis:
-                return analysis, "Anthropic Claude"
+        #if os.getenv('ANTHROPIC_API_KEY'):
+            #print("🤖 Calling Anthropic Claude for analysis...")
+            #analysis = self.call_anthropic_api(prompt)
+            #if analysis:
+                #return analysis, "Anthropic Claude"
         
         # Fallback to basic analysis if no AI available
         print("⚠️ No AI API configured - using basic analysis")
