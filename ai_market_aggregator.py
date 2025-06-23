@@ -467,7 +467,7 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
             else:
                  print("   DEBUG: OpenAI returned None, would normally try Anthropic")  # Add this
                   # The code should NOT reach here if OpenAI succeeded
-         print("   DEBUG: Code continued past OpenAI section")  # Add this line
+        print("   DEBUG: Code continued past OpenAI section")  # Add this line
         
         # Try Anthropic if OpenAI fails or not configured
         if os.getenv('ANTHROPIC_API_KEY'):
