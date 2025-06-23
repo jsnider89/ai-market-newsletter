@@ -461,13 +461,15 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
             analysis = self.call_openai_api_enhanced(prompt)
             print(f"   DEBUG: OpenAI returned: {analysis is not None}")  # Add this
             print(f"   DEBUG: Analysis type: {type(analysis)}")  # Add this
+            print(f"   DEBUG: Analysis repr: {repr(analysis)}")  # This will show empty strings
+            print(f"   DEBUG: Analysis bool: {bool(analysis)}")  # This will show if it's truthy
             if analysis:
                 print(f"   DEBUG: Analysis length: {len(analysis)} characters")  # Add this
                 return analysis, "OpenAI o4-mini (Enhanced)"
             else:
                  print("   DEBUG: OpenAI returned None, would normally try Anthropic")  # Add this
                   # The code should NOT reach here if OpenAI succeeded
-        print("   DEBUG: Code continued past OpenAI section")  # Add this line
+        print("   DEBUG: OpenAI returned empty/falsy value")  # Add this line
         
         # Try Anthropic if OpenAI fails or not configured
         if os.getenv('ANTHROPIC_API_KEY'):
