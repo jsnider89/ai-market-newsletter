@@ -250,12 +250,12 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
     """Enhanced OpenAI API call - simplified without tools"""
     api_key = os.getenv('OPENAI_API_KEY')
     
-    if not api_key:
-        print("❌ No OpenAI API key configured")
-        return None
+        if not api_key:
+            print("❌ No OpenAI API key configured")
+            return None
     
-    try:
-        print(f"   API Key found: {api_key[:8]}...")
+        try:
+            print(f"   API Key found: {api_key[:8]}...")
         
         headers = {
             'Authorization': f'Bearer {api_key}',
