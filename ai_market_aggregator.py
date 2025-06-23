@@ -346,7 +346,7 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
                 "tools": tools,
                 "tool_choice": "auto",  # Let o4-mini decide when to use tools
                 "temperature": 0.7,
-                "max_tokens": 5000,  # Standard parameter for compatibility
+                "max_completion_tokens": 5000,  # Standard parameter for compatibility
             }
             
             # Add reasoning_effort if supported
