@@ -246,7 +246,7 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
 
         return prompt
 
-def call_openai_api_enhanced(self, prompt):
+    def call_openai_api_enhanced(self, prompt):
     """Enhanced OpenAI API call - simplified without tools"""
     api_key = os.getenv('OPENAI_API_KEY')
     
