@@ -246,159 +246,73 @@ IMPORTANT: This is an automated daily briefing. Provide ALL 15 stories with COMP
 
         return prompt
 
-    def call_openai_api_enhanced(self, prompt):
-        """Enhanced OpenAI API call using o4-mini's advanced capabilities"""
-        api_key = os.getenv('OPENAI_API_KEY')
+def call_openai_api_enhanced(self, prompt):
+    """Enhanced OpenAI API call - simplified without tools"""
+    api_key = os.getenv('OPENAI_API_KEY')
+    
+    if not api_key:
+        print("❌ No OpenAI API key configured")
+        return None
+    
+    try:
+        print(f"   API Key found: {api_key[:8]}...")
         
-        if not api_key:
-            print("❌ No OpenAI API key configured")
-            return None
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
         
-        try:
-            print(f"   API Key found: {api_key[:8]}...")
-            
-            # Define tools that o4-mini can use for deeper analysis
-            tools = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "analyze_market_sentiment",
-                        "description": "Analyze the sentiment of market-related news",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "articles": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                    "description": "List of article titles to analyze"
-                                }
-                            },
-                            "required": ["articles"]
-                        }
-                    }
-                },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "identify_key_themes",
-                        "description": "Identify recurring themes across multiple news sources",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "sources": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                    "description": "News sources to analyze"
-                                },
-                                "min_occurrences": {
-                                    "type": "integer",
-                                    "description": "Minimum times a theme must appear"
-                                }
-                            },
-                            "required": ["sources", "min_occurrences"]
-                        }
-                    }
-                },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "calculate_market_impact",
-                        "description": "Estimate potential market impact of news events",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "event": {
-                                    "type": "string",
-                                    "description": "The news event to analyze"
-                                },
-                                "affected_sectors": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                    "description": "Market sectors potentially affected"
-                                }
-                            },
-                            "required": ["event"]
-                        }
-                    }
-                }
-            ]
-            
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
+        # Simplified request without tools
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a professional financial market analyst. Provide comprehensive analysis with deep reasoning."
+            },
+            {
+                "role": "user",
+                "content": prompt
             }
+        ]
+        
+        data = {
+            "model": "gpt-4o-mini",  # or "gpt-4o-mini-2025-04-16"
+            "messages": messages,
+            "temperature": 1,
+            "max_tokens": 5000,
+        }
+        
+        print(f"   Sending request to OpenAI (simplified, no tools)...")
+        
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers=headers,
+            json=data,
+            timeout=90
+        )
+        
+        print(f"   Response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content']
             
-            # Prepare enhanced request with developer message
-            messages = [
-                {
-                    "role": "system",  # Will be treated as developer message by o4-mini
-                    "content": "You are a professional financial market analyst with access to tools for deeper analysis. Use the provided tools when appropriate to enhance your analysis."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-            
-            data = {
-                "model": "o4-mini-2025-04-16",
-                "messages": messages,
-                "tools": tools,
-                "tool_choice": "auto",  # Let o4-mini decide when to use tools
-                "temperature": 1,
-                "max_completion_tokens": 5000,  # Standard parameter for compatibility
-            }
-            
-            # Add reasoning_effort if supported
-            # Note: This may not be supported in standard Chat Completions API
-            # but we'll try it and remove if it causes errors
-            data["reasoning_effort"] = "high"
-            
-            print(f"   Sending enhanced request to OpenAI (o4-mini with reasoning)...")
-            
-            # Use standard chat completions endpoint
-            response = requests.post(
-                'https://api.openai.com/v1/chat/completions',
-                headers=headers,
-                json=data,
-                timeout=90  # Longer timeout for reasoning
-            )
-            
-            # If reasoning_effort causes an error, retry without it
-            if response.status_code == 400 and "reasoning_effort" in response.text:
-                print("   Retrying without reasoning_effort parameter...")
-                data.pop("reasoning_effort", None)
-                response = requests.post(
-                    'https://api.openai.com/v1/chat/completions',
-                    headers=headers,
-                    json=data,
-                    timeout=90
-                )
-            
-            print(f"   Response status: {response.status_code}")
-            
-            if response.status_code == 200:
-                result = response.json()
-                
-                # Check if o4-mini used any tools
-                if 'choices' in result and result['choices'][0].get('message', {}).get('tool_calls'):
-                    print("   ✅ o4-mini used tools for enhanced analysis")
-                
-                # Extract the final content
-                content = result['choices'][0]['message']['content']
-                
-                print("   ✅ Successfully received AI analysis with enhanced reasoning")
-                return content
-            else:
-                print(f"❌ OpenAI API error: {response.status_code}")
-                print(f"   Error details: {response.text}")
+            # Check for empty content
+            if not content or not content.strip():
+                print("   ⚠️ Received empty response from OpenAI")
                 return None
                 
-        except Exception as e:
-            print(f"❌ Error calling OpenAI API: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            print("   ✅ Successfully received AI analysis")
+            return content
+        else:
+            print(f"❌ OpenAI API error: {response.status_code}")
+            print(f"   Error details: {response.text}")
             return None
+            
+    except Exception as e:
+        print(f"❌ Error calling OpenAI API: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
 
     def call_anthropic_api(self, prompt):
         """Call Anthropic Claude API for analysis"""
